@@ -6,11 +6,11 @@ grow into whatever you're building.
 
 | Piece | What it is |
 |---|---|
-| **Website** | [Vue 3](https://vuejs.org) + TypeScript, built with [Vite](https://vite.dev) - `client/` |
+| **Website** | [Vue 3](https://vuejs.org) + TypeScript, built with [Vite](https://vite.dev) - `client/`. The API's types are generated from the C#, so the two can't drift apart |
 | **API** | C# / [ASP.NET Core 10](https://learn.microsoft.com/aspnet/core) - `src/WebBase.Api/` |
 | **Database** | [PostgreSQL 18](https://www.postgresql.org), via Entity Framework Core, behind swappable stores (a Cosmos DB version is in `examples/cosmos-db/`). Managed Postgres recommended for production |
 | **Sign-in** | Email + password built in; "Sign in with Google" switched on by one setting |
-| **Content** | Optional file-based CMS: markdown files in `content/` become pages; off until switched on |
+| **Content** | Optional CMS: markdown files become pages, and a `theme.css` sets the colours. Kept in `content/`, an S3 bucket or Azure Blob Storage; off until switched on |
 | **Running it** | [Docker](https://www.docker.com) for everything - development and production |
 | **Going public** | [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) from your own computer, or a cloud (Azure, AWS, Google Cloud, Fly, Render...) |
 
@@ -59,7 +59,7 @@ Never used a terminal, or don't have Docker yet? Start with
 6. **[Your own domain with Cloudflare Tunnel](docs/CLOUDFLARE_TUNNEL.md)** - public, with no router changes.
 7. **[Deploying to a cloud](docs/CLOUD.md)** - Azure, AWS, Google Cloud, Fly.io, Render, Railway, a VPS.
 8. **[Google sign-in](docs/GOOGLE_SIGNIN.md)** - optional.
-9. **[The CMS](docs/CMS.md)** - optional: pages written as markdown files.
+9. **[The CMS](docs/CMS.md)** - optional: pages written as markdown files, in the repository or a bucket.
 10. **[Settings reference](docs/CONFIGURATION.md)** - every setting and secret.
 11. **[Troubleshooting](docs/TROUBLESHOOTING.md)** - when something doesn't work.
 
@@ -88,7 +88,7 @@ src/WebBase.Api/     the API (C#). Endpoints are in Controllers/
 tests/WebBase.Tests/ automated tests for the API
 ops/                 the production Dockerfile and database setup
 examples/            optional pieces to copy in, e.g. a Cosmos DB database
-content/             pages for the optional CMS (markdown files)
+content/             pages for the optional CMS (markdown files, theme.css)
 docs/                the guides above (also shown in the site at /docs)
 scripts/             helpers: tests, migrations, backups, cloud deploys
 compose.dev.yaml     what ./dev.sh runs

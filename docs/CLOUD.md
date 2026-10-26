@@ -5,6 +5,7 @@ about the most portable shape a web app can have. Every container host can
 run it. This page covers:
 
 - [The database: use a managed one](#the-database-use-a-managed-one)
+- [The CMS content](#the-cms-content), if you use it
 - [What every host needs](#what-every-host-needs), which is the whole story if your host isn't listed
 - Scripted: [Azure](#microsoft-azure), [AWS](#amazon-web-services-aws), [Google Cloud](#google-cloud)
 - Click-through: [Render](#render), [Railway](#railway), [Fly.io](#flyio), [DigitalOcean](#digitalocean-app-platform)
@@ -54,6 +55,21 @@ database you already have instead of creating one: `AZURE_DATABASE_URL`,
 Prefer a different kind of database, such as Azure Cosmos DB? The app only
 reaches its data through swappable *stores*, see [DATABASE.md](DATABASE.md).
 
+## The CMS content
+
+If you use the [CMS](CMS.md), its pages are built into the image from
+`content/` by default, and published with each deploy. To publish pages
+without a release, put them in the cloud's storage instead: an **S3 bucket**
+(AWS, or an S3-compatible one such as Cloudflare R2) or an **Azure Blob
+container** ([CMS.md](CMS.md#where-the-content-lives)).
+
+The scripts below pass `CMS_ENABLED`, `CMS_SOURCE` and the bucket settings
+from `.env.local` on to the app, but they don't create the bucket or give the
+app access to it. Do that once yourself ([CMS.md](CMS.md#in-a-cloud)):
+the ECS task role on AWS, the container app's managed identity on Azure. The
+scripts never copy an access key or connection string to the cloud; they warn
+if `.env.local` has one, since in the cloud it belongs in the host's secrets.
+
 ---
 
 ## What every host needs
@@ -75,6 +91,7 @@ Environment variables (set as **secrets** where the host offers it):
 | `DATABASE_URL` | `postgres://user:password@host:5432/dbname?sslmode=require`. Most hosts give you this exact string. Or set `ConnectionStrings__Default` to a .NET connection string instead |
 | `App__Name` | your site's name (optional) |
 | `Auth__Google__ClientId` | for Google sign-in (optional). Add the cloud address to the client's allowed origins ([GOOGLE_SIGNIN.md](GOOGLE_SIGNIN.md)) |
+| `Cms__Enabled`, `Cms__Source`, `Cms__S3__*`, `Cms__Azure__*` | the CMS (optional), and where its content is ([above](#the-cms-content)) |
 
 The app creates and updates its own tables when it starts, so an empty
 database is all it needs.

@@ -29,3 +29,30 @@ build_and_push() {
   say "Uploading ${image}"
   docker push "$image"
 }
+
+# The CMS's settings (docs/CMS.md) as NAME=VALUE lines for the cloud's
+# environment variables: CMS_ENABLED always, where its content is when set.
+CMS_SETTINGS=(Cms__Source:CMS_SOURCE
+  Cms__S3__Bucket:CMS_S3_BUCKET Cms__S3__Prefix:CMS_S3_PREFIX Cms__S3__Region:CMS_S3_REGION
+  Cms__S3__ServiceUrl:CMS_S3_SERVICE_URL
+  Cms__Azure__ContainerUrl:CMS_AZURE_CONTAINER_URL Cms__Azure__Container:CMS_AZURE_CONTAINER
+  Cms__Azure__Prefix:CMS_AZURE_PREFIX)
+cms_env() {
+  echo "Cms__Enabled=$(setting CMS_ENABLED false)"
+  local pair value
+  for pair in "${CMS_SETTINGS[@]}"; do
+    value="$(setting "${pair#*:}")"
+    if [ -n "$value" ]; then echo "${pair%%:*}=${value}"; fi
+  done
+}
+
+# Keys for the CMS's bucket aren't copied to the cloud: there, the app should
+# reach it with the cloud's own identity (docs/CMS.md, "In a cloud").
+cms_secrets_notice() {
+  local key
+  for key in CMS_S3_ACCESS_KEY CMS_S3_SECRET_KEY CMS_AZURE_CONNECTION_STRING; do
+    if [ -n "$(setting "$key")" ]; then
+      warn "${key} is set in .env.local but isn't sent to the cloud. See docs/CMS.md, \"In a cloud\"."
+    fi
+  done
+}

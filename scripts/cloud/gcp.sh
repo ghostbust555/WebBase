@@ -48,10 +48,12 @@ deploy_service() {
   gcloud run deploy "$SERVICE" "${G[@]}" --region "$REGION" --image "$image" \
     --port 8080 --allow-unauthenticated --min-instances 0 --max-instances 3 --memory 512Mi \
     "${sql[@]}" \
-    --set-env-vars "^@^App__Environment=prod@App__Name=$(setting APP_NAME WebBase)@Auth__Google__ClientId=$(setting GOOGLE_CLIENT_ID)@Cms__Enabled=$(setting CMS_ENABLED false)" \
+    --set-env-vars "^@^App__Environment=prod@App__Name=$(setting APP_NAME WebBase)@Auth__Google__ClientId=$(setting GOOGLE_CLIENT_ID)@$(cms_env | paste -sd@ -)" \
     --set-secrets "Jwt__Key=${SLUG}-jwt-key:latest,DATABASE_URL=${SLUG}-database-url:latest" \
     --quiet
 }
+
+cms_secrets_notice
 
 case "${1:-}" in
   setup)

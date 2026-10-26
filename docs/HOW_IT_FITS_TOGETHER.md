@@ -170,12 +170,12 @@ The full list is in [CONFIGURATION.md](CONFIGURATION.md).
 |---|---|
 | The home page | `client/src/views/HomeView.vue` (or `content/index.md` with the CMS on) |
 | A page's content or layout | `client/src/views/*.vue` |
-| Text pages: about, blog, help (optional CMS) | `content/*.md`, see [CMS.md](CMS.md) |
+| Text pages: about, blog, help (optional CMS) | `content/*.md`, or a bucket; see [CMS.md](CMS.md) |
 | The guides shown at `/docs` | `docs/*.md` |
 | The menu, banner, overall frame | `client/src/App.vue` |
-| Colours, fonts, spacing | `client/src/style.css` (variables at the top) |
+| Colours, fonts, spacing | `client/src/style.css` (variables at the top), or `content/theme.css` with the CMS on ([CMS.md](CMS.md#the-sites-look-themecss)) |
 | Which address shows which page | `client/src/router.ts` |
-| How the website calls the API | `client/src/api.ts` |
+| How the website calls the API | `client/src/api.ts`. Its types, `api-types.ts`, are generated from the C# ([DEVELOPING.md](DEVELOPING.md#5-the-website-apits-and-a-page)) |
 | An API endpoint | `src/WebBase.Api/Controllers/` |
 | Business rules | `src/WebBase.Api/Services/` |
 | A kind of record (a database table) | `src/WebBase.Api/Models/`, a store in `Data/` + `Data/Postgres/`, then a migration ([DEVELOPING.md](DEVELOPING.md#adding-a-feature-step-by-step)) |

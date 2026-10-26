@@ -40,7 +40,10 @@ json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
 
 container_json() {
   local image="$1" acct; acct="$(account)"
-  local ssm="arn:aws:ssm:${REGION}:${acct}:parameter/${SLUG}"
+  local ssm="arn:aws:ssm:${REGION}:${acct}:parameter/${SLUG}" cms name value
+  cms="$(cms_env | while IFS='=' read -r name value; do
+    printf ',\n    {"name": "%s", "value": "%s"}' "$name" "$(json_escape "$value")"
+  done)"
   cat <<JSON
 {
   "image": "${image}",
@@ -48,8 +51,7 @@ container_json() {
   "environment": [
     {"name": "App__Environment", "value": "prod"},
     {"name": "App__Name", "value": "$(json_escape "$(setting APP_NAME WebBase)")"},
-    {"name": "Auth__Google__ClientId", "value": "$(json_escape "$(setting GOOGLE_CLIENT_ID)")"},
-    {"name": "Cms__Enabled", "value": "$(json_escape "$(setting CMS_ENABLED false)")"}
+    {"name": "Auth__Google__ClientId", "value": "$(json_escape "$(setting GOOGLE_CLIENT_ID)")"}${cms}
   ],
   "secrets": [
     {"name": "Jwt__Key", "valueFrom": "${ssm}/jwt-key"},
@@ -127,6 +129,8 @@ print_url() {
     *) echo "https://${endpoint}" ;;
   esac
 }
+
+cms_secrets_notice
 
 case "${1:-}" in
   setup)

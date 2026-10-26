@@ -30,7 +30,10 @@ whether you're asking a person or an AI. Copy it in full.
 | Edited a `.vue` file, page didn't change | Check `./dev.sh logs web` for an error. A hard refresh (Ctrl+Shift+R / Cmd+Shift+R) helps. |
 | Edited C#, nothing changed | `./dev.sh logs api`: it may be waiting on a compile error, or need `./dev.sh restart`. |
 | Changed `.env.local`, nothing changed | `./dev.sh restart` / `./deploy.sh restart`. Settings are read at start. |
-| Production doesn't have my change | Production only changes on `./deploy.sh`. |
+| Production doesn't have my change | Production only changes on `./deploy.sh`. CMS content in a bucket is the exception: it shows within `Cms__RefreshSeconds` (a minute) without a deploy. |
+| `TypeScriptContractsTests` fails: "api-types.ts is out of date" | A C# type the API sends or receives changed. `./scripts/gen-types.sh` (or start `./dev.sh`), then commit `client/src/api-types.ts`. |
+| `npm run build` fails in `api.ts` or a page after a C# change | Working as intended: a field was renamed or retyped in C#. Update the website code it names. |
+| Generation fails: "... returns IActionResult, which doesn't say what's in it" | Add `[ProducesResponseType<YourDto>(200)]` (or `(204)`) to that action, or return `ActionResult<YourDto>`. |
 
 ## Database
 
@@ -53,6 +56,7 @@ whether you're asking a person or an AI. Copy it in full.
 | Deploy said "did not come up healthy" | It already switched back to the previous release. Read the error it printed, fix it, and deploy again. |
 | Works on localhost, not on the domain | See the table at the end of [CLOUDFLARE_TUNNEL.md](CLOUDFLARE_TUNNEL.md#if-it-doesnt-work). |
 | "Too many attempts" when signing in | The rate limit: 10 tries a minute per visitor. Wait a minute. |
+| CMS pages say "The site's content can't be reached right now" (503) | The bucket can't be read: a wrong bucket, prefix or region, missing permission, or the service is down. The log line at startup names the store (`cms=on (s3://...)`), and `./deploy.sh logs` shows the error. |
 
 ## Signed in, then suddenly signed out
 

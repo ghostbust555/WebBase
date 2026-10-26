@@ -21,8 +21,20 @@ services:
       DATABASE_URL: ${PROD_DATABASE_URL:-}
       Jwt__Key: ${JWT_KEY:?Set JWT_KEY in .env.local (./setup.sh does this)}
       Auth__Google__ClientId: ${GOOGLE_CLIENT_ID:-}
-      # The CMS's pages are inside the image (content/ as of the release).
+      # The CMS. With Source files, its pages are inside the image (content/
+      # as of the release); with s3 or azure, they're read from there live.
       Cms__Enabled: ${CMS_ENABLED:-false}
+      Cms__Source: ${CMS_SOURCE:-files}
+      Cms__S3__Bucket: ${CMS_S3_BUCKET:-}
+      Cms__S3__Prefix: ${CMS_S3_PREFIX:-}
+      Cms__S3__Region: ${CMS_S3_REGION:-}
+      Cms__S3__ServiceUrl: ${CMS_S3_SERVICE_URL:-}
+      Cms__S3__AccessKey: ${CMS_S3_ACCESS_KEY:-}
+      Cms__S3__SecretKey: ${CMS_S3_SECRET_KEY:-}
+      Cms__Azure__ConnectionString: ${CMS_AZURE_CONNECTION_STRING:-}
+      Cms__Azure__Container: ${CMS_AZURE_CONTAINER:-}
+      Cms__Azure__ContainerUrl: ${CMS_AZURE_CONTAINER_URL:-}
+      Cms__Azure__Prefix: ${CMS_AZURE_PREFIX:-}
     ports:
       # This computer only. The public reaches it through the tunnel below.
       - "127.0.0.1:${PROD_PORT:-8080}:8080"

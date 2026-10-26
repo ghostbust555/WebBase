@@ -1,0 +1,28 @@
+/* The site's colours and style settings, when the CMS is on.
+
+   Only CSS variables are used from this file: the ones at the top of
+   client/src/style.css. Anything else here is ignored. Remove the comment
+   markers around a line to use it, change the value, save, and reload.
+
+   Colours can be written #0f766e, rgb(15 118 110), or a name like teal. */
+
+:root {
+  /* --accent: #0f766e; */          /* links, buttons, the active menu item */
+  /* --accent-text: #ffffff; */     /* text on top of --accent */
+  /* --bg: #f7f7fb; */              /* the page behind everything */
+  /* --surface: #ffffff; */         /* cards, the header */
+  /* --text: #1c1c28; */
+  /* --muted: #5d5d72; */           /* secondary text */
+  /* --border: #e2e2ec; */
+  /* --radius: 12px; */             /* how round the corners are; 0 for square */
+  /* --font: Georgia, serif; */
+}
+
+/* The same, for visitors whose device is in dark mode. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* --accent: #5eead4; */
+    /* --accent-text: #12121a; */
+    /* --bg: #12121a; */
+  }
+}

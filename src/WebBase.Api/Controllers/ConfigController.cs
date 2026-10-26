@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using WebBase.Api.Contracts;
 using WebBase.Api.Infrastructure;
 
 namespace WebBase.Api.Controllers;
@@ -15,12 +16,10 @@ public class ConfigController(
     IOptions<AppOptions> app, IOptionsMonitor<GoogleAuthOptions> google, IOptions<CmsOptions> cms) : ControllerBase
 {
     [HttpGet]
-    public object Get() => new
-    {
-        name = app.Value.Name,
-        environment = app.Value.IsDevelopment ? "development" : "prod",
-        build = app.Value.Build,
-        googleClientId = google.CurrentValue.Enabled ? google.CurrentValue.ClientId : null,
-        cms = cms.Value.Enabled,
-    };
+    public SiteConfig Get() => new(
+        Name: app.Value.Name,
+        Environment: app.Value.IsDevelopment ? "development" : "prod",
+        Build: app.Value.Build,
+        GoogleClientId: google.CurrentValue.Enabled ? google.CurrentValue.ClientId : null,
+        Cms: cms.Value.Enabled);
 }

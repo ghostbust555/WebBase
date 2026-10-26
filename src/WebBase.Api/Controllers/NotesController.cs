@@ -34,6 +34,7 @@ public class NotesController(INoteStore notes) : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Delete(Guid id)
     {
         // Someone else's note answers exactly like a missing one.

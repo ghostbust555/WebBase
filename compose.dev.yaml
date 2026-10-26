@@ -48,6 +48,21 @@ services:
       # The optional CMS, reading content/ live: edit a page, reload the browser.
       Cms__Enabled: ${CMS_ENABLED:-false}
       Cms__ContentPath: /src/content
+      # Where its content is: files (content/, the default), s3 or azure.
+      Cms__Source: ${CMS_SOURCE:-files}
+      Cms__S3__Bucket: ${CMS_S3_BUCKET:-}
+      Cms__S3__Prefix: ${CMS_S3_PREFIX:-}
+      Cms__S3__Region: ${CMS_S3_REGION:-}
+      Cms__S3__ServiceUrl: ${CMS_S3_SERVICE_URL:-}
+      Cms__S3__AccessKey: ${CMS_S3_ACCESS_KEY:-}
+      Cms__S3__SecretKey: ${CMS_S3_SECRET_KEY:-}
+      Cms__Azure__ConnectionString: ${CMS_AZURE_CONNECTION_STRING:-}
+      Cms__Azure__Container: ${CMS_AZURE_CONTAINER:-}
+      Cms__Azure__ContainerUrl: ${CMS_AZURE_CONTAINER_URL:-}
+      Cms__Azure__Prefix: ${CMS_AZURE_PREFIX:-}
+      Cms__RefreshSeconds: "0"   # see an edited page on the next reload
+      # Rewrite client/src/api-types.ts whenever the C# types change.
+      Dev__TypeScriptOutput: /src/client/src/api-types.ts
       # Notice file changes made from outside the container (your editor).
       DOTNET_USE_POLLING_FILE_WATCHER: "1"
       DOTNET_WATCH_RESTART_ON_RUDE_EDIT: "1"

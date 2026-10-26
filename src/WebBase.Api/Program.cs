@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
+using WebBase.Api.Content;
 using WebBase.Api.Infrastructure;
 using WebBase.Api.Services;
 
@@ -22,7 +23,6 @@ var config = builder.Configuration;
 
 builder.Services.Configure<AppOptions>(config.GetSection(AppOptions.SectionName));
 builder.Services.Configure<GoogleAuthOptions>(config.GetSection(GoogleAuthOptions.SectionName));
-builder.Services.Configure<CmsOptions>(config.GetSection(CmsOptions.SectionName));
 var appOptions = config.GetSection(AppOptions.SectionName).Get<AppOptions>() ?? new AppOptions();
 
 // Cloud hosts (Cloud Run, Render, Railway, Heroku...) say which port to listen
@@ -52,7 +52,7 @@ builder.Services.AddDatabase(config);
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddSingleton<TokenService>();
 builder.Services.AddSingleton<IGoogleIdentity, GoogleIdentity>();
-builder.Services.AddSingleton<ContentService>();
+builder.Services.AddContent(config); // the optional CMS, from Cms:Source (Content/)
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -73,7 +73,10 @@ builder.Services
     });
 builder.Services.AddAuthorization();
 builder.Services.AddAppRateLimits(config);
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    // Enums travel as their names ("Admin"), not numbers, both ways - which is
+    // also how the generated TypeScript types describe them.
+    .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 builder.Services.AddOpenApi();
 
 // Behind Cloudflare, a cloud load balancer or any other proxy, the visitor's
@@ -108,20 +111,9 @@ if (appOptions.IsDevelopment)
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-// The CMS's images and other files: content/images/cat.jpg is served at
-// /content/images/cat.jpg. Never the .md files themselves - drafts live there.
+// The CMS's images and other files (/content/...) are served by
+// ContentController, from wherever Cms:Source keeps them.
 var content = app.Services.GetRequiredService<ContentService>();
-if (content.Enabled && Directory.Exists(content.Root))
-{
-    var types = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
-    types.Mappings.Remove(".md");
-    app.UseStaticFiles(new StaticFileOptions
-    {
-        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(content.Root),
-        RequestPath = "/content",
-        ContentTypeProvider = types,
-    });
-}
 
 app.UseRateLimiter();
 app.UseAuthentication();
@@ -147,12 +139,28 @@ using (var scope = app.Services.CreateScope())
     if (config.GetValue("Database:MigrateOnStartup", true)) await database.PrepareAsync();
 }
 
+// In development, keep client/src/api-types.ts in step with the C# types
+// (Infrastructure/TypeScriptContracts.cs). Also rewritten after hot reloads.
+if (appOptions.IsDevelopment && config["Dev:TypeScriptOutput"] is { Length: > 0 } typeScriptOutput)
+{
+    TypeScriptContracts.DevelopmentOutput = typeScriptOutput;
+    try
+    {
+        if (TypeScriptContracts.WriteIfChanged(typeScriptOutput, typeof(Program).Assembly))
+            app.Logger.LogInformation("Updated {File} from the C# types", TypeScriptContracts.RelativePath);
+    }
+    catch (Exception e)
+    {
+        app.Logger.LogWarning("Could not write {File}: {Error}", TypeScriptContracts.RelativePath, e.Message);
+    }
+}
+
 app.Logger.LogInformation("{Name} starting: environment={Environment} build={Build} database={Database} google-sign-in={Google} cms={Cms}",
     appOptions.Name, appOptions.IsDevelopment ? "development" : "prod",
     string.IsNullOrEmpty(appOptions.Build) ? "local" : appOptions.Build,
     databaseProvider,
     string.IsNullOrWhiteSpace(config["Auth:Google:ClientId"]) ? "off" : "on",
-    content.Enabled ? $"on ({content.Root})" : "off");
+    content.Enabled ? $"on ({content.Source})" : "off");
 
 // ---- 6. Run ----------------------------------------------------------------
 app.Run();

@@ -60,53 +60,19 @@ const post = <T>(path: string, body?: unknown) => request<T>('POST', path, body 
 const put = <T>(path: string, body: unknown) => request<T>('PUT', path, body)
 const del = <T>(path: string) => request<T>('DELETE', path)
 
-// ---- Types: the same shapes as src/WebBase.Api/Contracts/*.cs ----
+// ---- Types: generated from the C# API (api-types.ts) ----
+// Never written by hand: change the C# record and the TypeScript follows
+// (./dev.sh rewrites api-types.ts; ./scripts/gen-types.sh otherwise). A field
+// renamed in C# then fails `npm run build` wherever the website still uses it.
 
-export interface User {
-  id: string
-  email: string
-  displayName: string
-  hasPassword: boolean
-  hasGoogle: boolean
-  createdAtUtc: string
-}
+import type {
+  AuthResponse, ContentPage, ContentSummary, CreateNoteRequest, GoogleSignInRequest, LoginRequest,
+  NoteDto, RegisterRequest, SiteConfig, UpdateProfileRequest, UserDto
+} from './api-types'
 
-export interface AuthResponse {
-  token: string
-  user: User
-}
-
-export interface SiteConfig {
-  name: string
-  environment: 'development' | 'prod'
-  build: string
-  googleClientId: string | null
-  /** Whether the file-based CMS is switched on (CMS_ENABLED). */
-  cms: boolean
-}
-
-/** A CMS page in a list or menu. */
-export interface ContentSummary {
-  path: string
-  title: string
-  description: string | null
-  date: string | null
-  order: number | null
-  menu: boolean
-}
-
-/** A whole CMS page. `children` is set when the page is a folder (blog/ → its posts). */
-export interface ContentPage extends ContentSummary {
-  draft: boolean
-  markdown: string
-  children: ContentSummary[] | null
-}
-
-export interface Note {
-  id: string
-  text: string
-  createdAtUtc: string
-}
+export type { AuthResponse, ContentPage, ContentSummary, SiteConfig }
+export type User = UserDto
+export type Note = NoteDto
 
 // ---- Endpoints ----
 
@@ -114,19 +80,20 @@ export const configApi = {
   get: () => get<SiteConfig>('/api/config')
 }
 
+// Request bodies are checked against the C# request records with `satisfies`.
 export const authApi = {
   register: (email: string, password: string, displayName?: string) =>
-    post<AuthResponse>('/api/auth/register', { email, password, displayName }),
+    post<AuthResponse>('/api/auth/register', { email, password, displayName } satisfies RegisterRequest),
   login: (email: string, password: string) =>
-    post<AuthResponse>('/api/auth/login', { email, password }),
+    post<AuthResponse>('/api/auth/login', { email, password } satisfies LoginRequest),
   google: (credential: string) =>
-    post<AuthResponse>('/api/auth/google', { credential }),
+    post<AuthResponse>('/api/auth/google', { credential } satisfies GoogleSignInRequest),
   me: () => get<User>('/api/auth/me'),
-  updateMe: (displayName: string) => put<User>('/api/auth/me', { displayName }),
+  updateMe: (displayName: string) => put<User>('/api/auth/me', { displayName } satisfies UpdateProfileRequest),
   refresh: () => post<AuthResponse>('/api/auth/refresh')
 }
 
-// The optional CMS (content/ folder). See docs/CMS.md.
+// The optional CMS. See docs/CMS.md. (Its theme.css is linked in main.ts.)
 export const contentApi = {
   pages: () => get<ContentSummary[]>('/api/content/pages'),
   page: (path: string) => get<ContentPage>(`/api/content/page?path=${encodeURIComponent(path)}`)
@@ -135,6 +102,6 @@ export const contentApi = {
 // The example feature. Delete along with NotesView.vue when you remove it.
 export const notesApi = {
   list: () => get<Note[]>('/api/notes'),
-  create: (text: string) => post<Note>('/api/notes', { text }),
+  create: (text: string) => post<Note>('/api/notes', { text } satisfies CreateNoteRequest),
   remove: (id: string) => del<void>(`/api/notes/${id}`)
 }

@@ -1,9 +1,14 @@
 # The CMS (optional)
 
-A small content system: every page is a **markdown file** in the `content/`
-folder, and the folders are the addresses. No database, no admin screen.
-You write files, commit them, and they're on the site. It's good for an
-"About" page, a blog, help pages, or any text you'd rather write than code.
+A small content system: every page is a **markdown file**, and the folders
+are the addresses. No database, no admin screen. You write files, and they're
+on the site. It's good for an "About" page, a blog, help pages, or any text
+you'd rather write than code. The same files can also set the site's
+**colours** ([theme.css](#the-sites-look-themecss)).
+
+The files can live in the `content/` folder of this repository (the default),
+or in an **S3 bucket** or **Azure Blob Storage container**, so writers can
+publish without a release ([Where the content lives](#where-the-content-lives)).
 
 It's **off** until you turn it on, and while it's off nothing about it is
 reachable.
@@ -32,8 +37,8 @@ in the menu.
 
 - File and folder names become addresses, so use **lowercase letters,
   digits and dashes** (`my-first-post.md`). Other names are ignored.
-- Names starting with `_` are ignored. Use them for notes to yourself
-  (`_ideas.md`).
+- Names starting with `_` or `.` are ignored and never served. Use `_` for
+  notes to yourself (`_ideas.md`).
 - In development, saving a file and reloading the browser shows the change.
 
 ### Page settings
@@ -69,22 +74,155 @@ lists, tables, `code`, code blocks, > quotes, and links.
 
 - **Links to other pages:** `[About](/about)`, or relative to this file,
   like on GitHub: `[the other post](other-post.md)`.
-- **Pictures and downloads:** put the file in `content/` and refer to it
-  relative to the page, e.g. `![A cat](images/cat.jpg)` from `content/about.md`
-  means `content/images/cat.jpg`. Files in `content/` are served at
-  `/content/...`, except the `.md` files, which are only ever shown as pages.
+- **Pictures and downloads:** put the file next to the pages and refer to it
+  relative to the page, e.g. `![A cat](images/cat.jpg)` from `about.md`
+  means `images/cat.jpg`. Those files are served at `/content/...`, except
+  the `.md` files, which are only ever shown as pages.
 - HTML inside markdown is allowed, but anything that could run code
   (`<script>`, `onclick=`, `javascript:` links) is removed before it's shown.
 
-## Publishing
+## The site's look: theme.css
 
-`content/` is part of your code. Commit it, and `./deploy.sh` (or a cloud
-deploy) builds it into the release, exactly like a code change. Rolling back
-a release rolls back its content too.
+`theme.css` in the content (`content/theme.css` here) sets the site's colours
+without touching code. It's optional: without it, or with every line
+commented out as it ships, the site keeps the colours in
+`client/src/style.css`.
 
-Production needs `CMS_ENABLED=true` as well: in `.env.local` for
-`./deploy.sh`, or as `Cms__Enabled=true` on a cloud host (the cloud scripts
-pass `CMS_ENABLED` along by themselves).
+```css
+:root {
+  --accent: #7c3aed;
+  --radius: 4px;
+  --font: Georgia, serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent: #c4b5fd;
+  }
+}
+```
+
+- **Only CSS variables are used**: the `--name: value` lines inside `:root`,
+  and inside `:root` in the dark-mode block. Everything else in the file
+  (other rules, `body { ... }`, imports) is dropped. So the file can't break
+  the layout, or hide or add content, whoever edits it. The variables you
+  can set are the ones at the top of `client/src/style.css`; the shipped
+  `theme.css` lists them, commented out.
+- The site loads it from `/api/content/theme.css` after its own styles, so
+  its values win. Browsers check for a new version on every visit.
+- While the CMS is off, that address is an empty stylesheet.
+
+## Where the content lives
+
+`CMS_SOURCE` in `.env.local` (`Cms__Source` on a host) says where to read
+from. The layout inside is the same everywhere: the files and folders of
+`content/`.
+
+| `CMS_SOURCE` | The files are in | Settings |
+|---|---|---|
+| `files` (default) | A folder: `content/` in this repository | none |
+| `s3` | An Amazon S3 bucket, or an **S3-compatible** one: Cloudflare R2, DigitalOcean Spaces, Backblaze B2, MinIO... | `CMS_S3_BUCKET`, and optionally `CMS_S3_PREFIX`, `CMS_S3_REGION`, `CMS_S3_SERVICE_URL`, `CMS_S3_ACCESS_KEY` + `CMS_S3_SECRET_KEY` |
+| `azure` | An Azure Blob Storage container | `CMS_AZURE_CONTAINER_URL`, or `CMS_AZURE_CONNECTION_STRING` + `CMS_AZURE_CONTAINER`; optionally `CMS_AZURE_PREFIX` |
+
+The **prefix** is a folder inside the bucket, e.g. `www`, so one bucket can
+hold several sites, or other things too. Empty means the whole bucket.
+
+### S3, and S3-compatible storage
+
+```
+CMS_SOURCE=s3
+CMS_S3_BUCKET=my-site-content
+CMS_S3_PREFIX=www
+CMS_S3_REGION=eu-west-1
+```
+
+- **Credentials**: with `CMS_S3_ACCESS_KEY` / `CMS_S3_SECRET_KEY` empty, the
+  app uses the standard AWS ones: the role of the ECS task or EC2 machine,
+  `AWS_*` environment variables, or `~/.aws`. Read-only access is enough:
+  `s3:ListBucket` on the bucket and `s3:GetObject` on its objects.
+- **Not AWS?** Set `CMS_S3_SERVICE_URL` to the provider's endpoint (for R2,
+  `https://<account-id>.r2.cloudflarestorage.com`), and the access key and
+  secret from its dashboard. The region can stay empty.
+- The bucket doesn't need to be public, and shouldn't be: visitors get the
+  files through the app.
+
+### Azure Blob Storage
+
+```
+CMS_SOURCE=azure
+CMS_AZURE_CONTAINER_URL=https://mystorageaccount.blob.core.windows.net/site-content
+CMS_AZURE_PREFIX=www
+```
+
+- With a plain container URL, the app signs in as **itself**: its managed
+  identity on Azure, or your `az login` on your computer. Give that identity
+  the **Storage Blob Data Reader** role on the container.
+- Or add a SAS token to the URL (`...site-content?sv=...&sig=...`), made with
+  *read* and *list* permission. **It's a secret.**
+- Or set `CMS_AZURE_CONNECTION_STRING` (storage account → *Access keys*) and
+  `CMS_AZURE_CONTAINER`. **A secret too**, and it can write as well as read;
+  prefer the other two.
+
+### Publishing to a bucket
+
+Upload the folder. Pages change on the site within a minute
+([below](#how-quickly-changes-show)), with no release.
+
+```bash
+# S3 (--delete also removes pages you've deleted locally)
+aws s3 sync content/ s3://my-site-content/www/ --delete
+
+# S3-compatible: the same, with the provider's endpoint
+aws s3 sync content/ s3://my-site-content/www/ --delete --endpoint-url https://<account-id>.r2.cloudflarestorage.com
+
+# Azure (upload-batch doesn't remove deleted files; delete those in the portal,
+# or use azcopy sync with --delete-destination=true)
+az storage blob upload-batch --auth-mode login --account-name mystorageaccount \
+  --destination site-content --destination-path www --source content --overwrite
+```
+
+The account that **uploads** needs write access. The app only ever reads.
+
+Things that change once content is in a bucket:
+
+- `content/` in the repository is no longer what that site shows. Keep it as
+  your working copy and sync it, or let writers work in the bucket directly
+  (S3 console, Azure Storage Explorer).
+- A release doesn't publish content, and `./deploy.sh rollback` doesn't roll
+  it back. For a history of changes, turn on the bucket's **versioning**
+  (S3) or **soft delete and versioning** (Azure).
+
+### In a cloud
+
+On a cloud host, give the app access with the cloud's own identity, not a key:
+
+- **AWS (ECS)**: allow the task role `s3:ListBucket` and `s3:GetObject` on the bucket.
+- **Azure (Container Apps)**: turn on the app's managed identity
+  (`az containerapp identity assign --system-assigned`) and give it
+  *Storage Blob Data Reader* on the container.
+- **Elsewhere** (Render, Fly, a non-AWS bucket...): an access key or SAS
+  token, stored in that host's secret settings.
+
+The cloud scripts copy `CMS_ENABLED`, `CMS_SOURCE` and the bucket, prefix,
+region and URL settings from `.env.local`. They **don't** copy the access
+keys or connection string: they warn instead, because those belong in the
+host's secrets. See [CLOUD.md](CLOUD.md#the-cms-content).
+
+### How quickly changes show
+
+The app keeps the content in memory and looks for changed files every
+`Cms__RefreshSeconds` seconds: **60** by default, **0** (every request) in
+development. A look lists the files and re-reads only the changed ones, so
+it's cheap even for a large site.
+
+- If the bucket can't be reached, the site keeps showing the last copy it
+  read. If it has never managed to read it (say, the first start with a wrong
+  setting), content pages answer **503** "The site's content can't be
+  reached right now", the startup log names the store it's using, and the
+  rest of the app works normally.
+- Browsers keep pictures and other files for 5 minutes, so a picture
+  replaced under the same name can show the old version for that long.
+  Pages and `theme.css` aren't affected.
 
 ## How it works
 
@@ -93,39 +231,54 @@ pass `CMS_ENABLED` along by themselves).
      │  no app page has that address, so router.ts sends it to ContentView.vue
      ▼
  GET /api/content/page?path=blog/hello-world
-     │  ContentController → ContentService reads content/blog/hello-world.md
+     │  ContentController → ContentService → IContentStore (folder, S3 or Azure)
      ▼
  { title, date, markdown, children } → ContentPageView.vue → markdown rendered and sanitized in the browser
 ```
 
 | Piece | File |
 |---|---|
-| Reading the folder, the settings, drafts | `src/WebBase.Api/Services/ContentService.cs` |
-| The API (`/api/content/pages`, `/api/content/page`) | `src/WebBase.Api/Controllers/ContentController.cs` |
-| Files under `/content/...` | `src/WebBase.Api/Program.cs` (the "CMS's images" block) |
+| Pages, settings, drafts, the copy in memory | `src/WebBase.Api/Content/ContentService.cs` |
+| Where the files come from | `src/WebBase.Api/Content/IContentStore.cs`, with `FileContentStore.cs`, `S3ContentStore.cs`, `AzureBlobContentStore.cs` |
+| Choosing the store from `Cms__Source` | `src/WebBase.Api/Content/ContentRegistration.cs` |
+| Which names are allowed and served | `src/WebBase.Api/Content/ContentPaths.cs` |
+| theme.css → variables only | `src/WebBase.Api/Content/ThemeCss.cs` |
+| The API (`/api/content/pages`, `/page`, `/theme.css`) and files under `/content/...` | `src/WebBase.Api/Controllers/ContentController.cs` |
 | Address → page, or "not found" | `client/src/views/ContentView.vue` |
 | How a page looks | `client/src/components/ContentPageView.vue` and `.content-page` in `style.css` |
 | Markdown → safe HTML | `client/src/lib/markdown.ts` |
 | Menu items | `client/src/App.vue` |
-| Tests | `tests/WebBase.Tests/ContentTests.cs` |
+| Tests | `tests/WebBase.Tests/ContentTests.cs`, and `ContentStores/` for each store |
 
 The app's own pages (`/login`, `/notes`, `/docs`...) always win: a
-`content/login.md` is never shown.
+`login.md` is never shown.
+
+### Another kind of storage
+
+Google Cloud Storage, a database, a headless CMS's API: write a class that
+implements `IContentStore` (list the files, open one; about 60 lines, see
+`FileContentStore.cs`), add a `case` for it in `ContentRegistration.cs`, and
+give it a test class like `tests/WebBase.Tests/ContentStores/S3ContentStoreTests.cs`.
+Those run the same contract tests as the built-in stores. `./scripts/test.sh`
+runs the S3 and Azure ones against local stand-ins (S3Mock and Azurite), so
+no cloud account is needed.
 
 ## Limits, and where to go from here
 
 This is deliberately the minimum. It doesn't have:
 
-- **Editing in the browser.** Pages are files, and changes go through git.
-  That's a feature (history, review, rollback), but it means writers need
-  git. An admin editor would be a controller that writes files (or database
-  rows) behind an `[Authorize]` check for admins.
+- **Editing in the browser.** Pages are files. In `content/` that means git
+  (history, review, rollback); in a bucket, the cloud's own tools. An admin
+  editor would be a controller that writes files behind an `[Authorize]`
+  check for admins.
 - **Search-engine-friendly HTML.** Pages are drawn in the browser, which
   Google handles but some link previews don't. Rendering the markdown on the
   server instead (for example with the Markdig package) is the upgrade if you
   need it.
-- **Caching.** Each request reads the file. That's fine for hundreds of pages
-  and modest traffic.
+- **Huge sites.** Every page's text is held in memory, which is fine for
+  thousands of pages. Other files pass through the app on each request, so
+  large ones like videos are better served straight from a bucket or CDN,
+  and linked by their full URL.
 
 ## Turning it off again
 

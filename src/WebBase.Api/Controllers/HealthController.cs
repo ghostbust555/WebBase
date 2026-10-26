@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using WebBase.Api.Contracts;
 
 namespace WebBase.Api.Controllers;
 
@@ -11,10 +12,12 @@ namespace WebBase.Api.Controllers;
 public class HealthController(IDatabase db) : ControllerBase
 {
     [HttpGet]
+    [ProducesResponseType<HealthResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<HealthResponse>(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> Get(CancellationToken ct)
     {
         var database = await db.CanConnectAsync(ct);
-        var body = new { status = database ? "ok" : "degraded", database };
+        var body = new HealthResponse(database ? "ok" : "degraded", database);
         return database ? Ok(body) : StatusCode(503, body);
     }
 }

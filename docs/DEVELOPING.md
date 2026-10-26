@@ -112,24 +112,43 @@ two habits that file shows:
 
 Request and response shapes go in `Contracts/` (copy `NoteContracts.cs`).
 Return those, not the model itself, so a field you add later can't leak out
-by accident.
+by accident. Give each action its real return type (`ActionResult<RecipeDto>`),
+or, if it returns plain `IActionResult`, a `[ProducesResponseType<RecipeDto>(200)]`
+(`[ProducesResponseType(204)]` for "nothing"). The website's types are made
+from these ([next step](#5-the-website-apits-and-a-page)), and generation
+stops with the action's name if it can't tell what one returns.
 
 The new endpoints appear at <http://localhost:5173/scalar> straight away, and
 you can try them there.
 
 ### 5. The website: api.ts and a page
 
-In `client/src/api.ts`, add the type and the calls (copy `Note` and `notesApi`):
+**The types come from the C#; don't write them.** `client/src/api-types.ts`
+holds a TypeScript interface for every record a controller takes or returns,
+generated from the C# itself. While `./dev.sh` runs, the API rewrites it each
+time it rebuilds, so your `RecipeDto` and `CreateRecipeRequest` are already
+there. (Without `./dev.sh`: `./scripts/gen-types.sh`.) Commit it with the C#.
+
+In `client/src/api.ts`, import them and add the calls (copy `notesApi`):
 
 ```ts
-export interface Recipe { id: string; title: string; instructions: string; createdAtUtc: string }
+import type { CreateRecipeRequest, RecipeDto } from './api-types'
+export type Recipe = RecipeDto
 
 export const recipesApi = {
   list: () => get<Recipe[]>('/api/recipes'),
-  create: (title: string, instructions: string) => post<Recipe>('/api/recipes', { title, instructions }),
+  create: (title: string, instructions: string) =>
+    post<Recipe>('/api/recipes', { title, instructions } satisfies CreateRecipeRequest),
   remove: (id: string) => del<void>(`/api/recipes/${id}`)
 }
 ```
+
+`satisfies` checks the body you send against the C# request record. So when
+a field is renamed or changes type in C#, `npm run build` (and therefore
+`./scripts/test.sh` and every deploy) fails at each place the website still
+uses the old one, instead of the site breaking for visitors. If you forget to
+commit the regenerated file, a test (`TypeScriptContractsTests`) fails and
+says to run `./scripts/gen-types.sh`.
 
 Make `client/src/views/RecipesView.vue` (copy `NotesView.vue`), add its address
 in `client/src/router.ts`:
@@ -182,8 +201,13 @@ then `./scripts/ef.sh migrations add RemoveNotes` and `./scripts/test.sh`.
   store against a real PostgreSQL, which `test.sh` starts and removes again.
   Each test gets a fresh database, built by the migrations, so those are
   tested too. Run from an IDE without `TEST_POSTGRES` set, they show as skipped.
+- **The content stores** (`tests/WebBase.Tests/ContentStores/`): the CMS's
+  folder, S3 and Azure Blob stores, the last two against local stand-ins
+  (S3Mock and Azurite) that `test.sh` starts too.
 - **The website's type check and build.** TypeScript catches calling the API
-  with the wrong shape, typos in property names, and so on.
+  with the wrong shape, typos in property names, and so on. The API's types
+  come from the C# (`client/src/api-types.ts`), and a test fails if that file
+  is out of date.
 
 `./scripts/smoke.sh [address]` checks a *running* site end to end: sign up,
 sign in, notes. Use it after `./dev.sh`, after `./deploy.sh`

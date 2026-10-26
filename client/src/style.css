@@ -1,6 +1,7 @@
 /* The whole look of the site. Colours are variables at the top - change
    --accent and the site changes colour everywhere. Light and dark follow the
-   visitor's system setting. */
+   visitor's system setting. With the CMS on, content/theme.css can set any
+   of these variables without touching this file (docs/CMS.md). */
 
 :root {
   --bg: #f7f7fb;
@@ -13,8 +14,9 @@
   --danger: #c0262d;
   --success: #17803d;
   --radius: 12px;
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color-scheme: light dark;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font);
   line-height: 1.55;
 }
 

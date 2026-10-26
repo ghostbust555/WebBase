@@ -31,7 +31,9 @@ explained.
 | `POSTGRES_APP_PASSWORD` | prod | The app's own database password. Fixed once prod's database exists |
 | `PROD_DATABASE_URL` | prod | A managed database for prod, instead of the container. Empty = container ([DEPLOYING.md](DEPLOYING.md#a-managed-database)) |
 | `GOOGLE_CLIENT_ID` | dev, prod, cloud | Turns on Google sign-in ([GOOGLE_SIGNIN.md](GOOGLE_SIGNIN.md)) |
-| `CMS_ENABLED` | dev, prod, cloud | `true` turns on the file-based CMS ([CMS.md](CMS.md)) |
+| `CMS_ENABLED` | dev, prod, cloud | `true` turns on the CMS ([CMS.md](CMS.md)) |
+| `CMS_SOURCE` | dev, prod, cloud | Where its files are: `files` (`content/`, the default), `s3` or `azure` ([CMS.md](CMS.md#where-the-content-lives)) |
+| `CMS_S3_*`, `CMS_AZURE_*` | dev, prod, cloud | The bucket or container, for `s3` / `azure`. The keys and connection string among them are secrets, and the cloud scripts don't copy them ([CMS.md](CMS.md#in-a-cloud)) |
 | `CLOUDFLARE_TUNNEL_TOKEN` | `./tunnel.sh` | The tunnel to your domain ([CLOUDFLARE_TUNNEL.md](CLOUDFLARE_TUNNEL.md)) |
 | `DEV_WEB_PORT` | dev | Website port, default 5173 |
 | `DEV_API_PORT` | dev | API port (for tools; the browser doesn't need it), default 5000 |
@@ -59,8 +61,12 @@ second one different ports, for example `DEV_WEB_PORT=5174`,
 | `Database__Provider` | postgres | Which database implementation to use ([DATABASE.md](DATABASE.md)). Only `postgres` is built in; `cosmos` once you add `examples/cosmos-db` |
 | `Database__MigrateOnStartup` | true | Get the database ready when the app starts (Postgres: apply new migrations) |
 | `Auth__Google__ClientId` | | Google sign-in; empty = off |
-| `Cms__Enabled` | false | The file-based CMS ([CMS.md](CMS.md)) |
-| `Cms__ContentPath` | `../../content` | Where its files are. Docker sets this (`/src/content` in dev, `/app/content` in the image) |
+| `Cms__Enabled` | false | The CMS ([CMS.md](CMS.md)) |
+| `Cms__Source` | files | `files`, `s3` or `azure` |
+| `Cms__ContentPath` | `../../content` | For `files`: the folder. Docker sets this (`/src/content` in dev, `/app/content` in the image) |
+| `Cms__RefreshSeconds` | 60 | How often to look for changed content; 0 = every request (development) |
+| `Cms__S3__Bucket`, `__Prefix`, `__Region`, `__ServiceUrl`, `__AccessKey`, `__SecretKey` | | For `s3`. `ServiceUrl` for S3-compatible services; without keys, the standard AWS credentials ([CMS.md](CMS.md#s3-and-s3-compatible-storage)) |
+| `Cms__Azure__ContainerUrl`, or `__ConnectionString` + `__Container`; `__Prefix` | | For `azure`. A URL without a SAS token signs in with the app's identity ([CMS.md](CMS.md#azure-blob-storage)) |
 | `RateLimits__AuthPerMinute` | 10 | Sign-in/sign-up attempts allowed per visitor per minute |
 | `PORT` | | If set (by a cloud host), listen on this port instead of 8080 |
 

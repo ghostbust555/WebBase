@@ -40,6 +40,9 @@ database_url() {
   echo "postgres://${SLUG}admin:$(setting AZURE_DB_PASSWORD)@${PG_SERVER}.postgres.database.azure.com:5432/${SLUG}?sslmode=require"
 }
 
+mapfile -t CMS_ENV < <(cms_env)
+cms_secrets_notice
+
 case "${1:-}" in
   setup)
     need_secrets
@@ -85,8 +88,7 @@ case "${1:-}" in
       --secrets "jwt-key=$(setting JWT_KEY)" "database-url=$(database_url)" \
       --env-vars "App__Environment=prod" "App__Name=$(setting APP_NAME WebBase)" \
                  "Jwt__Key=secretref:jwt-key" "DATABASE_URL=secretref:database-url" \
-                 "Auth__Google__ClientId=$(setting GOOGLE_CLIENT_ID)" \
-                 "Cms__Enabled=$(setting CMS_ENABLED false)" \
+                 "Auth__Google__ClientId=$(setting GOOGLE_CLIENT_ID)" "${CMS_ENV[@]}" \
       -o none
     ok "Deployed. Your site: https://$(az containerapp show -g "$RG" -n "$APP" --query properties.configuration.ingress.fqdn -o tsv)"
     echo "    Next time, just: ./scripts/cloud/azure.sh deploy"
@@ -99,7 +101,7 @@ case "${1:-}" in
     build_and_push "$IMAGE" "$BUILD"
     say "Rolling out ${BUILD}"
     az containerapp update -g "$RG" -n "$APP" --image "$IMAGE" \
-      --set-env-vars "Cms__Enabled=$(setting CMS_ENABLED false)" "Auth__Google__ClientId=$(setting GOOGLE_CLIENT_ID)" -o none
+      --set-env-vars "Auth__Google__ClientId=$(setting GOOGLE_CLIENT_ID)" "${CMS_ENV[@]}" -o none
     ok "Deployed ${BUILD}: https://$(az containerapp show -g "$RG" -n "$APP" --query properties.configuration.ingress.fqdn -o tsv)"
     ;;
 
