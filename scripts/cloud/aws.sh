@@ -31,13 +31,15 @@
 #   AWS_DATABASE_URL   postgres://user:password@host:5432/db?sslmode=require   your own database.
 #                      Asked for when free needs one; kept in Parameter Store after that
 #   AWS_DB_CLASS       RDS size, standard only                           default db.t4g.micro
+#   AWS_MAX_CONCURRENCY  most copies of the function running at once (free): the cap on what
+#                      a flood can cost                                  default 20
 #   APP_NAME, GOOGLE_CLIENT_ID, CMS_ENABLED, CMS_SOURCE, CMS_S3_BUCKET...   the app's own
 #                      settings. Keep them in cloud.env (committed): every deploy applies them.
 . "$(dirname "$0")/common.sh"
 
 case "${1:-}" in
   setup|deploy|url|logs|destroy) ;;
-  *) sed -n '2,35p' "$0"; exit 1 ;;
+  *) sed -n '2,37p' "$0"; exit 1 ;;
 esac
 need_cli aws "Install AWS CLI v2 (https://aws.amazon.com/cli/), or run this in AWS CloudShell."
 aws sts get-caller-identity >/dev/null 2>&1 || die "Not logged in to AWS. Run: aws configure  (or aws sso login)"
@@ -248,6 +250,11 @@ lambda_deploy() { # image, create-if-missing
     say "A public HTTPS address for it"
     aws lambda create-function-url-config --function-name "$FUNCTION" --auth-type NONE >/dev/null
   fi
+  # The cap on what a flood can cost: at most this many copies run at once.
+  # (A new account may be allowed no reserved concurrency yet; that's not fatal.)
+  aws lambda put-function-concurrency --function-name "$FUNCTION" \
+    --reserved-concurrent-executions "$(setting AWS_MAX_CONCURRENCY 20)" >/dev/null 2>&1 \
+    || warn "Couldn't cap the function's concurrency (new AWS accounts often can't yet). Set a budget alert; the app still bans addresses that send too many requests."
   # Public, as a website must be. AWS now wants both permissions for this.
   aws lambda add-permission --function-name "$FUNCTION" --statement-id public-url --action lambda:InvokeFunctionUrl \
     --principal '*' --function-url-auth-type NONE >/dev/null 2>&1 || true

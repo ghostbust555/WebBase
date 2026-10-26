@@ -31,12 +31,18 @@ public static class RateLimits
     }
 
     /// <summary>
-    /// The visitor's real address. Behind Cloudflare every request arrives from
-    /// the tunnel, so Cloudflare's header is the one that says who it was. Behind
-    /// another proxy, UseForwardedHeaders has already put it in RemoteIpAddress.
+    /// The visitor's real address. Normally UseForwardedHeaders has already put
+    /// it in RemoteIpAddress (cloud load balancers add it themselves). Behind a
+    /// Cloudflare tunnel every request arrives from the tunnel, so
+    /// RateLimits:ClientIpHeader names the header that says who it was
+    /// (CF-Connecting-IP). It is empty by default: a header anyone can send
+    /// would let a flood pick its own address.
     /// </summary>
-    public static string ClientIp(HttpContext context) =>
-        context.Request.Headers["CF-Connecting-IP"].FirstOrDefault()
-        ?? context.Connection.RemoteIpAddress?.ToString()
-        ?? "unknown";
+    public static string ClientIp(HttpContext context)
+    {
+        var header = context.RequestServices.GetService<IConfiguration>()?["RateLimits:ClientIpHeader"];
+        if (!string.IsNullOrWhiteSpace(header) && context.Request.Headers[header].FirstOrDefault() is { Length: > 0 } fromHeader)
+            return fromHeader;
+        return context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    }
 }

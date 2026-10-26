@@ -106,6 +106,11 @@ Everything runs in Docker; no host SDKs are required.
   `ActionResult<T>`/`T`, or carry `[ProducesResponseType<T>(200)]` / `(204)` when
   they return `IActionResult`; otherwise type generation fails. Commit
   `api-types.ts` with any contract change. Enums serialize as strings.
+- **Every request passes `AbuseGuardMiddleware`** (first in the pipeline, prod only by default):
+  per-address ban, total cap, body limit (`Abuse__*`). The client address is
+  `RateLimits.ClientIp`: RemoteIpAddress after `UseForwardedHeaders`; a header only if
+  `RateLimits:ClientIpHeader` names one (never trust `CF-Connecting-IP` by default: spoofable).
+  docs/CLOUD.md, "Floods of requests".
 - **Errors are `{ "error": "<human sentence>" }`**. The client shows them verbatim.
 - **No secrets in `appsettings.json`, compose files or the client.** Secrets go
   in `.env.local` and are mapped in `compose.*.yaml`; see docs/CONFIGURATION.md.

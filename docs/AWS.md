@@ -107,6 +107,15 @@ without a release:
 4. Upload the pages: `aws s3 sync content s3://YOUR-BUCKET --delete`. Changes
    show on the site within a minute.
 
+## Floods of requests
+
+The app bans an address that sends too many requests, and caps the total. On
+the free setup, at most 20 copies of the function run at once
+(`AWS_MAX_CONCURRENCY`; a brand-new account may not be allowed to set this yet,
+and the script says so), and the standard service runs at most 3 containers. Details and
+limits: [CLOUD.md](CLOUD.md#floods-of-requests-and-your-bill). The "zero spend"
+budget in step 2 is your early warning.
+
 ## Changing settings
 
 | What | Where | Then |

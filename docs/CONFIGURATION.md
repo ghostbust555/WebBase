@@ -80,6 +80,12 @@ second one different ports, for example `DEV_WEB_PORT=5174`,
 | `Cms__Azure__ContainerUrl`, or `__ConnectionString` + `__Container`; `__Prefix` | | For `azure`. A URL without a SAS token signs in with the app's identity ([CMS.md](CMS.md#azure-blob-storage)) |
 | `Cms__Gcs__Bucket`, `__Prefix` | | For `gcs`. Signs in as the app's own service account ([CMS.md](CMS.md#google-cloud-storage)) |
 | `RateLimits__AuthPerMinute` | 10 | Sign-in/sign-up attempts allowed per visitor per minute |
+| `RateLimits__ClientIpHeader` | | A header that says who the visitor is, for when every request arrives from a proxy that isn't a normal load balancer. `compose.prod.yaml` sets `CF-Connecting-IP` for the Cloudflare tunnel. Leave it empty elsewhere: a header anyone can send would let a flood choose its own address |
+| `Abuse__Enabled` | on in prod, off in development | The request limits below |
+| `Abuse__PerIpPerMinute` | 240 | More requests than this from one address in a minute bans it (a page load is 10-30). Env: `ABUSE_PER_IP_PER_MINUTE` |
+| `Abuse__BanMinutes` | 30 | How long a ban lasts. Env: `ABUSE_BAN_MINUTES` |
+| `Abuse__TotalPerMinute` | 6000 | All addresses together, per running copy of the app. Past it, requests get a quick 503 for the rest of the minute, so a flood from many addresses has a ceiling. 0 = none. Env: `ABUSE_TOTAL_PER_MINUTE` |
+| `Abuse__MaxBodyKb` | 256 | The biggest request body accepted. Env: `ABUSE_MAX_BODY_KB` |
 | `PORT` | | If set (by a cloud host), listen on this port instead of 8080 |
 
 ## Adding a setting

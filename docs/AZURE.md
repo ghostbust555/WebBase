@@ -18,9 +18,10 @@ Per month, as published in October 2026 (check [the current list](https://azure.
 | Service | Used for | Free? |
 |---|---|---|
 | **Container Apps** | The website and API | **Always free**: 180,000 vCPU-seconds, 360,000 GiB-seconds and 2 million requests per subscription. The free setup scales to zero when nobody visits |
-| **Database for PostgreSQL** | The data | **Free for the first 12 months** of a new Azure account (750 hours of the smallest size, 32 GB), then about $13/month. For free *forever*, bring a [Neon](https://neon.tech) database instead: `AZURE_DATABASE_URL` |
-| **Container Registry** | The app's images | **Not free**: the Basic tier is about $5/month. It's the one cost the free setup can't avoid |
-| **Blob Storage** | The CMS's pages, if you use them | Cents a month. Free for 12 months on a new account |
+| **Database for PostgreSQL** | The data | **Free for the first 12 months** of a new Azure account: 750 hours of the smallest size (B1ms), 32 GB, 32 GB of backups. About $13/month after. For free *forever*, bring a [Neon](https://neon.tech) database instead: `AZURE_DATABASE_URL` |
+| **Blob Storage** | The CMS's pages, if you use them | **Free for the first 12 months**: 5 GB (locally redundant, hot), 20,000 reads and 10,000 writes a month. Cents a month after, at this size |
+| **Outbound traffic** | Pages sent to visitors | The first 100 GB a month is free |
+| **Container Registry** | The app's images | **Not on the free lists I could find**: the Basic tier is about $5/month. It's the one cost the free setup can't avoid. If your Azure free-services page lists it, you're ahead |
 
 So the free setup costs about **$5/month**, and after the database's free
 year about $18, or $5 with a Neon database. Everything else is free. Azure
@@ -102,6 +103,13 @@ without a release:
    storage account for `--auth-mode login`: Portal → the storage account →
    *Access control (IAM)* → *Add role assignment*.) Changes show on the site
    within a minute.
+
+## Floods of requests
+
+The app bans an address that sends too many requests, and caps the total; the
+app runs at most 2 copies (5 with `AZURE_TIER=standard`), so a flood can't make
+the compute bill grow without limit. Details and limits:
+[CLOUD.md](CLOUD.md#floods-of-requests-and-your-bill).
 
 ## Changing settings
 

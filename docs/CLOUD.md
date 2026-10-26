@@ -5,6 +5,7 @@ about the most portable shape a web app can have. Every container host can
 run it. This page covers:
 
 - [The database: use a managed one](#the-database-use-a-managed-one)
+- [Floods of requests, and your bill](#floods-of-requests-and-your-bill)
 - [The CMS content](#the-cms-content), if you use it
 - [What every host needs](#what-every-host-needs), which is the whole story if your host isn't listed
 - Scripted, each with a free setup and a standard one, and each doable from a browser: [Google Cloud](#google-cloud) ([GOOGLE_CLOUD.md](GOOGLE_CLOUD.md)), [Azure](#microsoft-azure) ([AZURE.md](AZURE.md)), [AWS](#amazon-web-services-aws) ([AWS.md](AWS.md))
@@ -66,6 +67,37 @@ database you already have instead of creating one: `AZURE_DATABASE_URL`,
 
 Prefer a different kind of database, such as Azure Cosmos DB? The app only
 reaches its data through swappable *stores*, see [DATABASE.md](DATABASE.md).
+
+## Floods of requests, and your bill
+
+In a cloud you pay for what runs, so anyone who can send your site a million
+requests can send you a bill. Nothing here makes the site good under attack;
+it keeps the cost bounded. Three layers, all on by default:
+
+1. **The app bans noisy addresses.** More than 240 requests from one address
+   in a minute (a page load is 10-30) and that address gets `429 Too Many
+   Requests` for 30 minutes, answered before any real work is done. All
+   addresses together are capped at 6000 a minute per running copy; past that
+   the site answers a quick `503` until the minute is over. Request bodies
+   over 256 KB are refused. It works the same on every host, because it's in
+   the app. Tune it with `ABUSE_PER_IP_PER_MINUTE`, `ABUSE_BAN_MINUTES`,
+   `ABUSE_TOTAL_PER_MINUTE` ([CONFIGURATION.md](CONFIGURATION.md)). Sign-in
+   attempts have their own, tighter limit (10 a minute).
+2. **The platform has a ceiling.** The scripts cap how many copies can run
+   (Google 2 free / 10 standard, Azure 2 / 5, ECS 3) and, on AWS's free
+   setup, how many Lambda copies run at once; Google also ends a request
+   after 60 seconds. However big the flood, the compute bill stops growing at
+   that ceiling.
+3. **A budget alert** tells you early. Each guide's setup has you create one.
+   It warns by email; it doesn't stop anything, so layers 1 and 2 matter.
+
+Limits: the bans live in each running copy's memory, so a restart forgets
+them and two copies count separately. An attack spread over thousands of
+addresses is capped by the total, not banned address by address. And traffic
+that is only *bandwidth* (people downloading big files) isn't counted here:
+keep large files out of the app, in a bucket or a CDN. For a site that's
+actually attacked, put Cloudflare (free) in front: it absorbs floods before
+they reach, or bill, you.
 
 ## The CMS content
 

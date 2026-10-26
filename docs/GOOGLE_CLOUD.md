@@ -144,6 +144,13 @@ Claude never needs your Google account or any key.
 environment would hold access to your whole Google project. Cloud Shell
 keeps that in your own browser.)
 
+## Floods of requests
+
+The app bans an address that sends too many requests, and caps the total; the
+service runs at most 2 copies (10 with `GCP_TIER=standard`) and ends a request
+after 60 seconds, so a flood can't run the bill up past the free tier for
+long. Details and limits: [CLOUD.md](CLOUD.md#floods-of-requests-and-your-bill).
+
 ## Changing settings
 
 | What | Where | Then |

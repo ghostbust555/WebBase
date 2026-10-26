@@ -93,7 +93,8 @@ service_config() {
   CONFIG=(--service-account "$RUN_SA" --port 8080
     # Request-based billing (CPU only while answering) and scale to zero:
     # what Cloud Run's free tier covers. Two instances at most caps the bill.
-    --cpu-throttling --cpu 1 "${SIZE[@]}"
+    # A request may take 60 seconds at most (the default is 5 minutes).
+    --cpu-throttling --cpu 1 --timeout 60 "${SIZE[@]}"
     --set-env-vars "$(app_env)"
     --set-secrets "Jwt__Key=${JWT_SECRET}:latest,DATABASE_URL=${DB_SECRET}:latest")
   # Cloud SQL is reached through a socket Cloud Run mounts at /cloudsql/...

@@ -74,6 +74,11 @@ builder.Services
     });
 builder.Services.AddAuthorization();
 builder.Services.AddAppRateLimits(config);
+// A flood of requests costs money in a cloud: per-address bans, a cap on the
+// total, and a small body limit (Infrastructure/AbuseGuard.cs).
+var abuse = AbuseGuard.OptionsFrom(config);
+builder.Services.AddAbuseGuard(abuse);
+builder.WebHost.ConfigureKestrel(k => k.Limits.MaxRequestBodySize = abuse.MaxBodyKb * 1024L);
 builder.Services.AddControllers()
     // Enums travel as their names ("Admin"), not numbers, both ways - which is
     // also how the generated TypeScript types describe them.
@@ -97,6 +102,8 @@ var app = builder.Build();
 // Order matters: each line sees the request before the ones below it.
 
 app.UseForwardedHeaders();
+// Before everything else, so a flood is turned away at the cheapest point.
+if (abuse.IsEnabled(appOptions.IsDevelopment)) app.UseMiddleware<AbuseGuardMiddleware>();
 app.UseSecurityHeaders();
 
 if (appOptions.IsDevelopment)

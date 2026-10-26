@@ -78,14 +78,18 @@ build_and_push() {
   docker push "$image"
 }
 
-# The CMS's settings (docs/CMS.md) as NAME=VALUE lines for the cloud's
-# environment variables: CMS_ENABLED always, where its content is when set.
+# The settings the cloud scripts pass on (CMS: docs/CMS.md; Abuse: the request
+# limits in docs/CONFIGURATION.md), as NAME=VALUE lines for the cloud's
+# environment variables: CMS_ENABLED always, the rest when set.
 CMS_SETTINGS=(Cms__Source:CMS_SOURCE
   Cms__S3__Bucket:CMS_S3_BUCKET Cms__S3__Prefix:CMS_S3_PREFIX Cms__S3__Region:CMS_S3_REGION
   Cms__S3__ServiceUrl:CMS_S3_SERVICE_URL
   Cms__Azure__ContainerUrl:CMS_AZURE_CONTAINER_URL Cms__Azure__Container:CMS_AZURE_CONTAINER
   Cms__Azure__Prefix:CMS_AZURE_PREFIX
-  Cms__Gcs__Bucket:CMS_GCS_BUCKET Cms__Gcs__Prefix:CMS_GCS_PREFIX)
+  Cms__Gcs__Bucket:CMS_GCS_BUCKET Cms__Gcs__Prefix:CMS_GCS_PREFIX
+  Abuse__Enabled:ABUSE_ENABLED Abuse__PerIpPerMinute:ABUSE_PER_IP_PER_MINUTE
+  Abuse__BanMinutes:ABUSE_BAN_MINUTES Abuse__TotalPerMinute:ABUSE_TOTAL_PER_MINUTE
+  Abuse__MaxBodyKb:ABUSE_MAX_BODY_KB)
 cms_env() {
   echo "Cms__Enabled=$(setting CMS_ENABLED false)"
   local pair value

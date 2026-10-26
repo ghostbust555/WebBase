@@ -21,6 +21,9 @@ services:
       DATABASE_URL: ${PROD_DATABASE_URL:-}
       Jwt__Key: ${JWT_KEY:?Set JWT_KEY in .env.local (./setup.sh does this)}
       Auth__Google__ClientId: ${GOOGLE_CLIENT_ID:-}
+      # Behind the Cloudflare tunnel, who a visitor is comes in this header (for
+      # the per-address limits). Safe here: the port above is this computer only.
+      RateLimits__ClientIpHeader: ${CLIENT_IP_HEADER:-CF-Connecting-IP}
       # The CMS. With Source files, its pages are inside the image (content/
       # as of the release); with s3 or azure, they're read from there live.
       Cms__Enabled: ${CMS_ENABLED:-false}
@@ -37,6 +40,10 @@ services:
       Cms__Azure__Prefix: ${CMS_AZURE_PREFIX:-}
       Cms__Gcs__Bucket: ${CMS_GCS_BUCKET:-}
       Cms__Gcs__Prefix: ${CMS_GCS_PREFIX:-}
+      # Request limits (docs/CONFIGURATION.md). Empty = the defaults.
+      Abuse__PerIpPerMinute: ${ABUSE_PER_IP_PER_MINUTE:-}
+      Abuse__BanMinutes: ${ABUSE_BAN_MINUTES:-}
+      Abuse__TotalPerMinute: ${ABUSE_TOTAL_PER_MINUTE:-}
     ports:
       # This computer only. The public reaches it through the tunnel below.
       - "127.0.0.1:${PROD_PORT:-8080}:8080"
