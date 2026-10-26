@@ -12,7 +12,7 @@ namespace WebBase.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/auth")]
-public class AuthController(AuthService auth, TokenService tokens, IGoogleIdentity google, AppDbContext db) : ControllerBase
+public class AuthController(AuthService auth, TokenService tokens, IGoogleIdentity google, IUserStore users) : ControllerBase
 {
     [HttpPost("register")]
     [EnableRateLimiting(RateLimits.Auth)]
@@ -51,7 +51,7 @@ public class AuthController(AuthService auth, TokenService tokens, IGoogleIdenti
     [Authorize]
     public async Task<ActionResult<UserDto>> Me()
     {
-        var user = await db.Users.FindAsync(User.GetUserId());
+        var user = await users.FindByIdAsync(User.GetUserId());
         // A valid token for an account that has since been deleted.
         return user == null ? Unauthorized() : UserDto.From(user);
     }
@@ -72,7 +72,7 @@ public class AuthController(AuthService auth, TokenService tokens, IGoogleIdenti
     [Authorize]
     public async Task<ActionResult<AuthResponse>> Refresh()
     {
-        var user = await db.Users.FindAsync(User.GetUserId());
+        var user = await users.FindByIdAsync(User.GetUserId());
         return user == null ? Unauthorized() : SignedIn(user);
     }
 

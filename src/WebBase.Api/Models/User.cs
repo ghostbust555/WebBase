@@ -26,6 +26,4 @@ public class User
     public string? GoogleSubject { get; set; }
 
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
-
-    public List<Note> Notes { get; set; } = [];
 }

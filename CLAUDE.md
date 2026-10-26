@@ -8,9 +8,20 @@ traps.
 
 - `client/`: Vue 3 + TypeScript + Vite single-page app. `src/api.ts` is the only
   place that calls the API; `src/router.ts` lists every page.
-- `src/WebBase.Api/`: ASP.NET Core 10 controllers + EF Core on PostgreSQL.
-  `Program.cs` wires everything in numbered sections.
-- `tests/WebBase.Tests/`: xUnit, WebApplicationFactory + EF InMemory (`TestApp.cs`).
+- `src/WebBase.Api/`: ASP.NET Core 10 controllers. `Program.cs` wires everything
+  in numbered sections.
+- Data access goes only through store interfaces in `Data/` (`IUserStore`,
+  `INoteStore`, `IDatabase`); `Data/DatabaseRegistration.cs` picks the
+  implementation from `Database:Provider`. `Data/Postgres/` (EF Core + Npgsql,
+  `AppDbContext`, `Migrations/`) is the only code allowed to use EF. Models are
+  plain classes with no navigation properties. See docs/DATABASE.md.
+- `examples/cosmos-db/`: a tested Cosmos DB implementation of the stores, not
+  compiled until copied into `src/` (its README).
+- `tests/WebBase.Tests/`: xUnit v3. API tests: WebApplicationFactory + EF InMemory
+  (`TestApp.cs`). Store tests: `StoreContract/StoreContractTests.cs`, one abstract
+  suite every implementation runs (`PostgresStoreTests` needs `TEST_POSTGRES`,
+  which `scripts/test.sh` provides; skipped without it). `ArchitectureTests`
+  fails if anything outside `Data/` takes an EF/Npgsql/concrete-store dependency.
 - `content/`: optional file-based CMS (`Cms__Enabled`, off by default). `ContentService`
   maps addresses to `.md` files; the SPA's catch-all route (`ContentView.vue`) asks
   `/api/content/page`. Markdown is rendered client-side via `lib/markdown.ts`
@@ -31,7 +42,7 @@ Everything runs in Docker; no host SDKs are required.
 | Task | Command |
 |---|---|
 | Start dev (hot reload) | `./dev.sh` → :5173 (port from `.env.local`) |
-| All checks | `./scripts/test.sh` (C# tests + `vue-tsc` + vite build) |
+| All checks | `./scripts/test.sh` (C# tests incl. stores on a throwaway Postgres + `vue-tsc` + vite build) |
 | New migration | `./scripts/ef.sh migrations add <Name>` (applied automatically at startup) |
 | End-to-end check of a running stack | `./scripts/smoke.sh [base-url]` |
 | Release prod locally / undo | `./deploy.sh` / `./deploy.sh rollback` |
@@ -41,9 +52,15 @@ Everything runs in Docker; no host SDKs are required.
 
 ## Rules
 
-- **Every query on user data filters by `User.GetUserId()`.** Return a 404 for
-  someone else's row, never a 403 (don't confirm it exists). Copy the isolation
-  test in `NotesApiTests.cs` for each new resource.
+- **Every store method on user data takes the owner's id** (`INoteStore.RemoveAsync(userId, id)`),
+  and controllers pass `User.GetUserId()`. Return a 404 for someone else's row,
+  never a 403 (don't confirm it exists). Copy the isolation test in
+  `NotesApiTests.cs` and the store tests in `StoreContractTests.cs` for each new resource.
+- **No EF outside `Data/Postgres/`.** Controllers and services ask for store
+  interfaces. A new store = interface in `Data/`, Postgres implementation +
+  `DbSet` + registration in `Data/Postgres/`, contract tests. Store contract:
+  reads return copies (AsNoTracking; `AppDbContext.SaveAsync` clears the tracker),
+  uniqueness violations throw `DuplicateKeyException`, UTC times.
 - **Return DTOs from `Contracts/`, never EF models.**
 - **Errors are `{ "error": "<human sentence>" }`**. The client shows them verbatim.
 - **No secrets in `appsettings.json`, compose files or the client.** Secrets go
@@ -61,8 +78,13 @@ Everything runs in Docker; no host SDKs are required.
 
 ## Traps
 
-- EF InMemory (tests) doesn't support `ExecuteUpdate/ExecuteDelete` or raw SQL.
-  Either avoid them or test those paths against Postgres.
+- EF InMemory (API tests) doesn't support `ExecuteUpdate/ExecuteDelete` or raw SQL,
+  and doesn't enforce unique indexes. The store contract tests cover those on real Postgres.
+- Migrations live in `Data/Postgres/Migrations/` (namespace `WebBase.Api.Data.Postgres.Migrations`);
+  `ef.sh migrations add` puts new ones there by itself.
+- Prod's database container is in `compose.prod-db.yaml`, added by `dc prod` in
+  `scripts/lib.sh` only while `PROD_DATABASE_URL` is empty. A prod-only setting for
+  the db container goes there, not in `compose.prod.yaml`.
 - `PORT` env var overrides the 8080 listen port (for cloud hosts); don't set it locally.
 - In dev, `bin/` and `obj/` of the API live in Docker volumes, separate from any
   host build. If a container build acts stale: `docker compose -f compose.dev.yaml down -v`

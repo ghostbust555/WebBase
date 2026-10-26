@@ -4,11 +4,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using WebBase.Api.Data;
+using WebBase.Api.Data.Postgres;
 
 #nullable disable
 
-namespace WebBase.Api.Migrations
+namespace WebBase.Api.Data.Postgres.Migrations
 {
     [DbContext(typeof(AppDbContext))]
     partial class AppDbContextModelSnapshot : ModelSnapshot
@@ -84,18 +84,11 @@ namespace WebBase.Api.Migrations
 
             modelBuilder.Entity("WebBase.Api.Models.Note", b =>
                 {
-                    b.HasOne("WebBase.Api.Models.User", "User")
-                        .WithMany("Notes")
+                    b.HasOne("WebBase.Api.Models.User", null)
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("WebBase.Api.Models.User", b =>
-                {
-                    b.Navigation("Notes");
                 });
 #pragma warning restore 612, 618
         }

@@ -4,13 +4,15 @@ Production is **one container image plus a PostgreSQL database**, which is
 about the most portable shape a web app can have. Every container host can
 run it. This page covers:
 
+- [The database: use a managed one](#the-database-use-a-managed-one)
 - [What every host needs](#what-every-host-needs), which is the whole story if your host isn't listed
 - Scripted: [Azure](#microsoft-azure), [AWS](#amazon-web-services-aws), [Google Cloud](#google-cloud)
 - Click-through: [Render](#render), [Railway](#railway), [Fly.io](#flyio), [DigitalOcean](#digitalocean-app-platform)
 - [Any Linux server](#any-linux-server-vps), the same as running at home
 
-**Which should I pick?** For a first site, a VPS (about $5/month) or Render or
-Railway (both click-through, with the database included) are the simplest.
+**Which should I pick?** For a first site, Render or Railway (both
+click-through, with a database included) or a VPS (about $5/month, plus a
+managed database once the data matters) are the simplest.
 Pick Azure, AWS or Google Cloud when you already use one of them, need its
 other services, or expect to need to scale. Their scripts here do the setup
 in one command, but each platform has more parts to understand and its own
@@ -23,6 +25,37 @@ billing to watch.
 
 ---
 
+## The database: use a managed one
+
+In a cloud, **the app runs in a container, and the data lives in the cloud's
+managed PostgreSQL**, never in a database container next to the app.
+
+- Cloud container hosts replace containers on every release, and move them
+  whenever they like. A database inside one would lose its data.
+- A managed database takes daily backups, can restore to a point in time,
+  applies security updates, and can keep a standby copy. You get all of that
+  without running any of it.
+
+Every option on this page does it that way:
+
+| Host | Managed PostgreSQL | Set up by |
+|---|---|---|
+| Azure | Azure Database for PostgreSQL (Flexible Server) | `azure.sh setup` |
+| AWS | Amazon RDS for PostgreSQL | `aws.sh setup` |
+| Google Cloud | Cloud SQL for PostgreSQL | `gcp.sh setup` |
+| Render, Railway, DigitalOcean, Fly.io | the host's own PostgreSQL | a few clicks, below |
+| Anything | [Neon](https://neon.tech), [Supabase](https://supabase.com) (both have free tiers) | paste its connection string as `DATABASE_URL` |
+
+The app doesn't care which. It needs one connection string (`DATABASE_URL`),
+and it creates its own tables on first start. Each script can also use a
+database you already have instead of creating one: `AZURE_DATABASE_URL`,
+`AWS_DATABASE_URL`, `GCP_DATABASE_URL`.
+
+Prefer a different kind of database, such as Azure Cosmos DB? The app only
+reaches its data through swappable *stores*, see [DATABASE.md](DATABASE.md).
+
+---
+
 ## What every host needs
 
 | | |
@@ -30,7 +63,7 @@ billing to watch.
 | **Image** | built from `ops/Dockerfile`, with the repository root as the build context |
 | **Port** | the container listens on **8080**, or on `$PORT` if the host sets it (Render, Railway, Cloud Run, Heroku do) |
 | **Health check** | `GET /api/health` returns 200 when the app and its database are fine |
-| **Database** | any PostgreSQL 14 or newer |
+| **Database** | any PostgreSQL 14 or newer: the host's managed one ([above](#the-database-use-a-managed-one)) |
 | **Instances** | one is plenty to start. More is fine too: they share nothing but the database |
 
 Environment variables (set as **secrets** where the host offers it):
@@ -98,43 +131,49 @@ certificate for free.
 
 **Amazon ECS Express Mode** runs the container. One command creates the
 service, an HTTPS load balancer, an address and auto-scaling. (AWS App
-Runner, the older option, stopped taking new customers in 2026.) Roughly
-$20-40/month, much of it the load balancer, plus the database.
+Runner, the older option, stopped taking new customers in 2026.) **Amazon
+RDS for PostgreSQL** holds the data. Roughly $20-40/month for the app, much
+of it the load balancer, plus about $15/month for the smallest database.
 
-### A database on AWS
+### The database
 
-The script doesn't create the database, because that's the part with the
-most choices. Pick one:
+`aws.sh setup` creates an RDS PostgreSQL instance for you (`webbase-db`,
+size `db.t4g.micro`, daily backups kept for 7 days, encrypted). It sits in
+your account's **default VPC** (the network ECS Express Mode runs the app
+in), and is reachable only from inside it, never from the internet. Its
+password is saved in `.env.local` as `AWS_DB_PASSWORD`.
 
-- **Easiest**: a hosted Postgres outside AWS, like [Neon](https://neon.tech) or
-  [Supabase](https://supabase.com) (both have free tiers). Create a project,
-  copy its connection string, and use it as `AWS_DATABASE_URL`.
-- **Amazon RDS**: in the AWS console, open **Aurora and RDS → Create database**.
-  Pick PostgreSQL, the **Free tier** / smallest template, and set a master
-  password. Under *Connectivity*, keep the **default VPC**. Once it's
-  available, edit its **security group** to allow inbound PostgreSQL (5432)
-  from the security group of your ECS service (create the service first, or
-  temporarily allow the default VPC's range, `172.31.0.0/16`). Then:
-  `AWS_DATABASE_URL=postgres://postgres:<password>@<endpoint>:5432/postgres?sslmode=require`
+To use a database you already have instead, put its address in `.env.local`
+before setup, and none is created:
+
+```
+AWS_DATABASE_URL=postgres://user:password@host:5432/dbname?sslmode=require
+```
+
+That can be another RDS instance (allow PostgreSQL, port 5432, from your
+default VPC in its security group), or a hosted Postgres outside AWS like
+[Neon](https://neon.tech) or [Supabase](https://supabase.com).
 
 ### Deploy
 
 1. Install the AWS CLI v2 (<https://aws.amazon.com/cli/>). It must be recent
    enough to know `aws ecs create-express-gateway-service`; update it if not.
 2. `aws configure` (or `aws sso login` if your organisation uses SSO)
-3. Add `AWS_DATABASE_URL=...` to `.env.local` (optionally `AWS_REGION=...`; the default is `us-east-1`)
+3. Optionally, in `.env.local`: `AWS_REGION=...` (the default is `us-east-1`),
+   `AWS_DATABASE_URL=...` (above), `AWS_DB_CLASS=...` for a bigger database.
 4. `./scripts/cloud/aws.sh setup`
 
-It stores the secrets in SSM Parameter Store (encrypted), creates two IAM
-roles, uploads the image to ECR and creates the service. It prints an address
-like `https://webbase-xxxx.ecs.us-east-1.on.aws`.
+It creates the database (5-15 minutes, the slowest step), stores the secrets
+in SSM Parameter Store (encrypted), creates two IAM roles, uploads the image
+to ECR and creates the service. It prints an address like
+`https://webbase-xxxx.ecs.us-east-1.on.aws`.
 
 | Later | |
 |---|---|
 | Release a new version | `./scripts/cloud/aws.sh deploy`. AWS shifts traffic gradually and rolls back by itself if the new version fails |
 | The address | `./scripts/cloud/aws.sh url` |
 | Logs | AWS console → CloudWatch → Log groups |
-| Delete it | `./scripts/cloud/aws.sh destroy` (your database is left alone) |
+| Delete it | `./scripts/cloud/aws.sh destroy`. The RDS database it created goes too, after a final snapshot is taken. A database you brought (`AWS_DATABASE_URL`) is left alone |
 
 **Your own domain**: request a certificate in AWS Certificate Manager, add it
 to the load balancer's HTTPS listener, and point a DNS record at the load
@@ -181,8 +220,9 @@ Postgres is roughly $7-15/month. There are free tiers, but the free database
 expires.
 
 1. Push this repository to GitHub.
-2. On <https://render.com>: **New → Postgres**. Pick a name and the smallest
-   plan, and create it. Copy its **Internal Database URL**.
+2. On <https://render.com>: **New → Postgres** (Render's managed PostgreSQL,
+   with daily backups on paid plans). Pick a name and the smallest paid plan,
+   and create it. Copy its **Internal Database URL**.
 3. **New → Web Service** → connect the repository. Then:
    - Language: **Docker**
    - Dockerfile path: `./ops/Dockerfile`, Docker build context: `.`
@@ -194,7 +234,10 @@ expires.
 ## Railway
 
 1. On <https://railway.com>: **New Project → Deploy from GitHub repo**, and pick this repository.
-2. In the same project: **New → Database → PostgreSQL**.
+2. In the same project: **New → Database → PostgreSQL**. Railway runs it for
+   you, but check its **Backups** tab and turn scheduled backups on. For data
+   that matters, a managed provider like Neon also works here: use its URL as
+   `DATABASE_URL` instead.
 3. Open the app service → **Variables** and add:
    - `RAILWAY_DOCKERFILE_PATH` = `ops/Dockerfile`
    - `App__Environment` = `prod`
@@ -208,8 +251,9 @@ expires.
 1. Install `flyctl` (<https://fly.io/docs/flyctl/install/>), then `fly auth login`.
 2. `fly launch --dockerfile ops/Dockerfile --internal-port 8080 --no-deploy`.
    Say no to any databases it offers if you'll bring your own.
-3. A database: create one with Fly's Postgres offering (see `fly postgres --help`
-   / Fly's docs), or use Neon or Supabase. Then:
+3. A database: **Fly Managed Postgres** (`fly mpg create`, see Fly's docs),
+   or Neon or Supabase. Avoid the older `fly postgres create`: that's a
+   database running in a Fly machine that you look after yourself. Then:
    `fly secrets set DATABASE_URL='postgres://...' Jwt__Key="$(openssl rand -base64 48)" App__Environment=prod`
 4. `fly deploy`. Later releases are just `fly deploy`.
 
@@ -217,9 +261,10 @@ expires.
 
 **Create → Apps** → pick the GitHub repository. DigitalOcean detects the
 Dockerfile. If it doesn't, set the Dockerfile path to `ops/Dockerfile`. Set the
-HTTP port to 8080, add a **Dev Database** or **Managed Database** (PostgreSQL)
-component, and set `DATABASE_URL` to `${db.DATABASE_URL}` along with the
-other variables from [the table above](#what-every-host-needs).
+HTTP port to 8080, add a **Managed Database** (PostgreSQL) component (not a
+*Dev Database*, which is meant for trying things out), and set
+`DATABASE_URL` to `${db.DATABASE_URL}` along with the other variables from
+[the table above](#what-every-host-needs).
 
 ---
 
@@ -236,7 +281,19 @@ git clone <your repository> site && cd site
 ./setup.sh && ./deploy.sh && ./tunnel.sh on
 ```
 
-The database runs on the same server, so **set up backups**
+By default the database runs in a container on the same server. That's
+cheap, but its backups are your job. Better, and recommended once the site
+matters: a **managed PostgreSQL** (your VPS provider's, e.g. DigitalOcean,
+Hetzner or Linode managed databases, or Neon / Supabase), with one line in
+`.env.local` on the server:
+
+```
+PROD_DATABASE_URL=postgres://user:password@host:5432/dbname?sslmode=require
+```
+
+`./deploy.sh` then uses it and runs no database container. See
+[DEPLOYING.md → A managed database](DEPLOYING.md#a-managed-database). If you
+keep the container, **set up backups**
 ([DEPLOYING.md → Backups](DEPLOYING.md#backups)) and copy them off the server.
 
 ---
@@ -244,9 +301,12 @@ The database runs on the same server, so **set up backups**
 ## After you've moved to a cloud
 
 - Your data stays where it was created. To move production data from your
-  own computer to a cloud database, take a backup (`./scripts/backup.sh`) and
-  load it into the new database with `psql`:
-  `gunzip -c backups/<file>.sql.gz | psql "<the cloud DATABASE_URL>"`.
+  own computer to a cloud database, take a backup (`./scripts/backup.sh`),
+  set `PROD_DATABASE_URL` in `.env.local` to the cloud database's URL, and
+  `./scripts/restore.sh <the backup>`. The cloud database needs to be
+  reachable from your computer for that step (Azure and Neon/Supabase allow
+  it with a firewall rule; RDS in a VPC doesn't, so load it from inside AWS).
+  Then set `PROD_DATABASE_URL` back to empty.
 - Keep `JWT_KEY` the same everywhere a given site runs, or everyone gets
   signed out when you switch.
 - The scripts call each cloud's own command-line tool, and those tools change

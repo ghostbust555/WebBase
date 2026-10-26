@@ -15,15 +15,11 @@ namespace WebBase.Api.Controllers;
 [ApiController]
 [Route("api/notes")]
 [Authorize]
-public class NotesController(AppDbContext db) : ControllerBase
+public class NotesController(INoteStore notes) : ControllerBase
 {
     [HttpGet]
-    public async Task<List<NoteDto>> List() =>
-        await db.Notes
-            .Where(n => n.UserId == User.GetUserId())
-            .OrderByDescending(n => n.CreatedAtUtc)
-            .Select(n => new NoteDto(n.Id, n.Text, n.CreatedAtUtc))
-            .ToListAsync();
+    public async Task<List<NoteDto>> List(CancellationToken ct) =>
+        (await notes.ListAsync(User.GetUserId(), ct)).Select(NoteDto.From).ToList();
 
     [HttpPost]
     public async Task<ActionResult<NoteDto>> Create(CreateNoteRequest request)
@@ -33,8 +29,7 @@ public class NotesController(AppDbContext db) : ControllerBase
         if (text.Length > 2000) return BadRequest(new ErrorResponse("Notes can be at most 2000 characters."));
 
         var note = new Note { UserId = User.GetUserId(), Text = text };
-        db.Notes.Add(note);
-        await db.SaveChangesAsync();
+        await notes.AddAsync(note);
         return CreatedAtAction(nameof(List), NoteDto.From(note));
     }
 
@@ -42,11 +37,8 @@ public class NotesController(AppDbContext db) : ControllerBase
     public async Task<IActionResult> Delete(Guid id)
     {
         // Someone else's note answers exactly like a missing one.
-        var note = await db.Notes.FirstOrDefaultAsync(n => n.Id == id && n.UserId == User.GetUserId());
-        if (note == null) return NotFound(new ErrorResponse("No such note."));
-
-        db.Notes.Remove(note);
-        await db.SaveChangesAsync();
-        return NoContent();
+        return await notes.RemoveAsync(User.GetUserId(), id)
+            ? NoContent()
+            : NotFound(new ErrorResponse("No such note."));
     }
 }

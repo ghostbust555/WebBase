@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace WebBase.Api.Migrations
+namespace WebBase.Api.Data.Postgres.Migrations
 {
     /// <inheritdoc />
     public partial class Initial : Migration

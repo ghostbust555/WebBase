@@ -40,6 +40,9 @@ whether you're asking a person or an AI. Copy it in full.
 | `password authentication failed for user "webbase_app"` (prod) | `.env.local`'s database passwords no longer match the ones prod's database was created with. Put the originals back. |
 | Want a clean development database | `./dev.sh reset-db` |
 | `pending model changes` warning in the logs | Same as the first row: add a migration. |
+| Prod with `PROD_DATABASE_URL`: "did not come up healthy", `Name or service not known`, `timeout`, or `no pg_hba.conf entry` | The managed database can't be reached from this computer, or refuses it. Check the URL, and the provider's firewall / allowed-addresses setting. `./deploy.sh logs` shows the exact error. |
+| `Database:Provider is 'x', which this app doesn't have` | A typo in `Database__Provider`, or a database implementation that hasn't been added ([DATABASE.md](DATABASE.md#switching-to-another-database)). |
+| `isn't a complete backup` from `restore.sh` | That file came from a backup that failed, or it's damaged. Use an older one. |
 
 ## Production
 

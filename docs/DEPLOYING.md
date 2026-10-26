@@ -14,8 +14,9 @@ service instead, see [CLOUD.md](CLOUD.md).
 ```
 
 `./deploy.sh` builds a **release** (a Docker image holding the compiled API
-and the built website), starts it with its own database, waits until it
-reports healthy, and tells you where it is:
+and the built website), starts it with its own database (a container, unless
+you [use a managed one](#a-managed-database)), waits until it reports
+healthy, and tells you where it is:
 
 ```
  ✓ Prod is running 20261025-1830-a1b2c3d
@@ -44,6 +45,40 @@ Database migrations run automatically as the new release starts. If you
 use the [CMS](CMS.md), the `content/` folder goes into the release too. If the new
 release doesn't come up healthy within 90 seconds, `deploy.sh` **switches back
 to the previous release by itself** and shows you the error.
+
+## A managed database
+
+By default production's database is a PostgreSQL container on this
+computer, with its data in `.docker-data/prod-postgres`. That's free and
+simple. But your data then lives on one disk, and backups, testing them and
+updates are all up to you.
+
+**A managed PostgreSQL** does those for you: daily backups, restore to a
+point in time, security updates, often a standby copy. For a site whose data
+matters, it's the better choice, even when the app itself runs here. Any of
+these work: [Neon](https://neon.tech) or [Supabase](https://supabase.com)
+(free tiers), Azure Database for PostgreSQL, Amazon RDS, Google Cloud SQL,
+or your server provider's managed databases (DigitalOcean, Hetzner, Linode...).
+
+1. Create the database with the provider, and copy its **connection string**.
+   It looks like `postgres://user:password@host:5432/dbname?sslmode=require`.
+   Allow connections from this computer if the provider has a firewall
+   setting (its *Networking* or *Connections* page).
+2. In `.env.local`, set:
+   ```
+   PROD_DATABASE_URL=postgres://user:password@host:5432/dbname?sslmode=require
+   ```
+3. `./deploy.sh restart`
+
+From then on `./deploy.sh` runs no database container, and the app creates
+its tables in the managed database on first start. `./scripts/backup.sh` and
+`restore.sh` work on it too. Treat their backups as an extra copy: the
+provider's own backups are the main ones.
+
+**Moving existing data across**: before step 2, `./scripts/backup.sh`. After
+step 2, `./scripts/restore.sh backups/<that file>`, then step 3. The old
+container's data stays in `.docker-data/` until you delete it, so emptying
+`PROD_DATABASE_URL` again switches back.
 
 ## Undoing a release
 
@@ -81,6 +116,10 @@ Desktop when you sign in"; Linux: `sudo systemctl enable docker`).
 
 **Copy backups off this computer.** A backup on the same disk is lost along
 with the disk. Copy them to cloud storage, another machine, or a USB drive.
+(Or [use a managed database](#a-managed-database), which keeps its own.)
+
+A backup that fails part-way (the database stopped, a network error) leaves
+no file behind, and `restore.sh` refuses any file that isn't a complete backup.
 
 To back up every night at 3am, run `crontab -e` and add:
 
@@ -99,7 +138,9 @@ Test a restore occasionally, into development: `./scripts/restore.sh <file> dev`
 
 ## The passwords
 
-`./setup.sh` generated three secrets in `.env.local`:
+`./setup.sh` generated three secrets in `.env.local` (with a [managed
+database](#a-managed-database), only `JWT_KEY` is used: the database's
+password is in `PROD_DATABASE_URL`):
 
 - `JWT_KEY` signs sign-in tokens. Changing it signs everybody out, but is
   otherwise harmless.

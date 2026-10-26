@@ -41,11 +41,10 @@ if (jwt.Key.Length < JwtOptions.MinimumKeyLength || (!appOptions.IsDevelopment &
         "Run ./setup.sh, or set the Jwt__Key environment variable.");
 builder.Services.AddSingleton(Microsoft.Extensions.Options.Options.Create(jwt));
 
-// The database. DATABASE_URL (as cloud hosts provide it) wins over
-// ConnectionStrings:Default (as docker compose provides it).
-var connectionString = DatabaseUrl.ToConnectionString(config["DATABASE_URL"])
-                       ?? config.GetConnectionString("Default");
-builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
+// The database: PostgreSQL unless Database:Provider says otherwise. The app
+// uses it only through IUserStore, INoteStore and IDatabase (Data/), so the
+// implementation can change without touching anything else (docs/DATABASE.md).
+builder.Services.AddDatabase(config);
 
 // ---- 2. Services -----------------------------------------------------------
 // Anything a controller asks for in its constructor has to be registered here.
@@ -138,30 +137,20 @@ if (File.Exists(Path.Combine(app.Environment.WebRootPath ?? "wwwroot", "index.ht
     app.MapFallbackToFile("index.html");
 
 // ---- 5. Database -----------------------------------------------------------
-// Apply any migrations that haven't run yet, so deploying a new version is
-// just "start it". In prod this runs as the database owner (ConnectionStrings:
-// Migration) while requests use a role that can't change the schema.
-if (config.GetValue("Database:MigrateOnStartup", true))
+// Bring the database up to date (Postgres: apply new migrations), so deploying
+// a new version is just "start it".
+string databaseProvider;
+using (var scope = app.Services.CreateScope())
 {
-    var migration = config.GetConnectionString("Migration");
-    if (!string.IsNullOrWhiteSpace(migration))
-    {
-        var ownerOptions = new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(migration).Options;
-        await using var owner = new AppDbContext(ownerOptions);
-        await owner.Database.MigrateAsync();
-    }
-    else
-    {
-        using var scope = app.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        if (db.Database.IsRelational()) await db.Database.MigrateAsync();
-        else await db.Database.EnsureCreatedAsync(); // the test suite's in-memory database
-    }
+    var database = scope.ServiceProvider.GetRequiredService<IDatabase>();
+    databaseProvider = database.Provider;
+    if (config.GetValue("Database:MigrateOnStartup", true)) await database.PrepareAsync();
 }
 
-app.Logger.LogInformation("{Name} starting: environment={Environment} build={Build} google-sign-in={Google} cms={Cms}",
+app.Logger.LogInformation("{Name} starting: environment={Environment} build={Build} database={Database} google-sign-in={Google} cms={Cms}",
     appOptions.Name, appOptions.IsDevelopment ? "development" : "prod",
     string.IsNullOrEmpty(appOptions.Build) ? "local" : appOptions.Build,
+    databaseProvider,
     string.IsNullOrWhiteSpace(config["Auth:Google:ClientId"]) ? "off" : "on",
     content.Enabled ? $"on ({content.Root})" : "off");
 

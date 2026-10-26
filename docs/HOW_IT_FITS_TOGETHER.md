@@ -13,7 +13,7 @@ browser to the database and back.
   │   browser)    │ JSON │                    │      │              │
   └───────────────┘      └────────────────────┘      └──────────────┘
      client/                src/WebBase.Api/            tables made by
-                                                        Migrations/
+                                                        Data/Postgres/Migrations/
 ```
 
 **The website** (`client/`) is what people see. It's a *single-page app*: the
@@ -29,9 +29,14 @@ enforce a rule.** Anyone can send the API whatever they like, so every rule
 belongs in the API.
 
 **The database** (PostgreSQL) stores everything that must survive a restart:
-accounts, notes, and whatever you add. You don't write SQL by hand. You
-describe tables as C# classes (`Models/`), and Entity Framework turns those
-into tables and queries.
+accounts, notes, and whatever you add. You don't write SQL by hand. Records
+are plain C# classes (`Models/`), and the API reaches the database only
+through small interfaces called *stores* (`Data/IUserStore.cs`,
+`Data/INoteStore.cs`). The PostgreSQL implementation behind them
+(`Data/Postgres/`) uses Entity Framework, which turns those classes into
+tables and queries. Because nothing else knows about PostgreSQL, the database
+can be swapped (a managed cloud Postgres, or Cosmos DB) without changing the
+rest. See [DATABASE.md](DATABASE.md).
 
 ## Development: three containers, your live code
 
@@ -81,6 +86,9 @@ into tables and queries.
 - The database has no open port at all. Only `app` can reach it. And `app`
   connects as a database user that can read and write rows but can't create
   or delete tables. Only the startup migration runs as the table owner.
+- Or, recommended for anything that matters, no database container at all:
+  set `PROD_DATABASE_URL` to a managed PostgreSQL and `app` uses that
+  ([DEPLOYING.md](DEPLOYING.md#a-managed-database)).
 - `app` listens on 127.0.0.1, which is this computer only. The public
   reaches it only if you turn on the Cloudflare Tunnel
   ([CLOUDFLARE_TUNNEL.md](CLOUDFLARE_TUNNEL.md)).
@@ -105,14 +113,15 @@ What happens when a signed-in person adds a note:
    sent it.
 5. **The controller** - `Controllers/NotesController.cs`. `[Authorize]` refuses
    anyone without a valid token (401). `Create` checks the text, makes a `Note`
-   with `UserId = User.GetUserId()`, and saves it.
-6. **The database** - Entity Framework turns `db.Notes.Add(...)` and
-   `SaveChangesAsync()` into an `INSERT` into the `Notes` table.
+   with `UserId = User.GetUserId()`, and hands it to the note store
+   (`INoteStore.AddAsync`).
+6. **The database** - the PostgreSQL store (`Data/Postgres/PostgresNoteStore.cs`)
+   saves it through Entity Framework, which sends an `INSERT` into the `Notes` table.
 7. **Back** - the controller returns the new note as JSON. The page adds it
    to the list.
 
 Every feature you build follows the same path: page → `api.ts` → controller →
-database.
+store → database.
 
 ## Sign-in, in a few sentences
 
@@ -169,6 +178,7 @@ The full list is in [CONFIGURATION.md](CONFIGURATION.md).
 | How the website calls the API | `client/src/api.ts` |
 | An API endpoint | `src/WebBase.Api/Controllers/` |
 | Business rules | `src/WebBase.Api/Services/` |
-| A database table | `src/WebBase.Api/Models/` + `Data/AppDbContext.cs`, then a migration |
+| A kind of record (a database table) | `src/WebBase.Api/Models/`, a store in `Data/` + `Data/Postgres/`, then a migration ([DEVELOPING.md](DEVELOPING.md#adding-a-feature-step-by-step)) |
+| Which database, and where it runs | `Database__Provider`, `DATABASE_URL` / `PROD_DATABASE_URL`, see [DATABASE.md](DATABASE.md) |
 | How the server is wired together | `src/WebBase.Api/Program.cs` |
 | Production's container | `ops/Dockerfile`, `compose.prod.yaml` |

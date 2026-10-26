@@ -20,7 +20,7 @@ export interface Doc {
 
 // Reading order for the side menu. Anything not listed comes after, A-Z.
 const ORDER = [
-  'GETTING_STARTED', 'HOW_IT_FITS_TOGETHER', 'DEVELOPING', 'CMS', 'DEPLOYING',
+  'GETTING_STARTED', 'HOW_IT_FITS_TOGETHER', 'DEVELOPING', 'DATABASE', 'CMS', 'DEPLOYING',
   'CLOUDFLARE_TUNNEL', 'CLOUD', 'GOOGLE_SIGNIN', 'CONFIGURATION', 'TROUBLESHOOTING', 'README'
 ]
 

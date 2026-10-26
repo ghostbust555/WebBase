@@ -26,13 +26,18 @@ build_of() { docker image inspect --format '{{index .Config.Labels "build"}}' "$
 
 check_settings() {
   [ -f .env.local ] || die "No .env.local yet. Run ./setup.sh first."
-  for key in JWT_KEY POSTGRES_PASSWORD POSTGRES_APP_PASSWORD; do
+  local keys=(JWT_KEY)
+  # The passwords are for the database container; a managed database has its own.
+  [ -z "$(env_value PROD_DATABASE_URL)" ] && keys+=(POSTGRES_PASSWORD POSTGRES_APP_PASSWORD)
+  for key in "${keys[@]}"; do
     [ -n "$(env_value "$key")" ] || die "$key is empty in .env.local. Run ./setup.sh to generate it."
   done
 }
 
 start_prod() {
-  dc prod up -d db app
+  # --remove-orphans: after switching to a managed database, stop the old
+  # database container (its data stays in .docker-data/).
+  dc prod up -d --remove-orphans app
   say "Waiting for prod to report healthy"
   wait_for_url "$HEALTH" 90
 }
@@ -51,6 +56,8 @@ case "${1:-release}" in
     if start_prod; then
       ok "Prod is running ${BUILD}"
       echo "    http://localhost:${PORT}   (this computer)"
+      if [ -n "$(env_value PROD_DATABASE_URL)" ]; then echo "    database: managed (PROD_DATABASE_URL)"
+      else echo "    database: the container on this computer - back it up: ./scripts/backup.sh"; fi
       [ -n "$(env_value CLOUDFLARE_TUNNEL_TOKEN)" ] && echo "    ./tunnel.sh status  to check the public address"
     else
       warn "Release ${BUILD} did not come up healthy. Its last words:"

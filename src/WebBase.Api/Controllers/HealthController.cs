@@ -8,12 +8,12 @@ namespace WebBase.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/health")]
-public class HealthController(AppDbContext db) : ControllerBase
+public class HealthController(IDatabase db) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Get(CancellationToken ct)
     {
-        var database = await db.Database.CanConnectAsync(ct);
+        var database = await db.CanConnectAsync(ct);
         var body = new { status = database ? "ok" : "degraded", database };
         return database ? Ok(body) : StatusCode(503, body);
     }

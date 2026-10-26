@@ -12,6 +12,8 @@ cd "$ROOT"
 SLUG="webbase"
 
 # The C# project folder, from the solution layout.
+# The PostgreSQL client tools, for databases outside the compose files.
+PG_IMAGE="postgres:18.6-alpine"
 API_DIR="src/WebBase.Api"
 
 bold()  { printf '\033[1m%s\033[0m\n' "$*"; }
@@ -35,6 +37,10 @@ need_docker() {
 dc() {
   local environment="$1"; shift
   local args=(-f "compose.${environment}.yaml")
+  # Prod's own database container, unless a managed one is configured.
+  if [ "$environment" = prod ] && [ -z "$(env_value PROD_DATABASE_URL)" ]; then
+    args+=(-f compose.prod-db.yaml)
+  fi
   [ -f .env.local ] && args=(--env-file .env.local "${args[@]}")
   docker compose "${args[@]}" "$@"
 }

@@ -8,7 +8,7 @@ grow into whatever you're building.
 |---|---|
 | **Website** | [Vue 3](https://vuejs.org) + TypeScript, built with [Vite](https://vite.dev) - `client/` |
 | **API** | C# / [ASP.NET Core 10](https://learn.microsoft.com/aspnet/core) - `src/WebBase.Api/` |
-| **Database** | [PostgreSQL 18](https://www.postgresql.org), via Entity Framework Core |
+| **Database** | [PostgreSQL 18](https://www.postgresql.org), via Entity Framework Core, behind swappable stores (a Cosmos DB version is in `examples/cosmos-db/`). Managed Postgres recommended for production |
 | **Sign-in** | Email + password built in; "Sign in with Google" switched on by one setting |
 | **Content** | Optional file-based CMS: markdown files in `content/` become pages; off until switched on |
 | **Running it** | [Docker](https://www.docker.com) for everything - development and production |
@@ -54,13 +54,14 @@ Never used a terminal, or don't have Docker yet? Start with
 1. **[Getting started](docs/GETTING_STARTED.md)** - from nothing to a running site.
 2. **[How it fits together](docs/HOW_IT_FITS_TOGETHER.md)** - what each piece does and how a click becomes a database row.
 3. **[Developing](docs/DEVELOPING.md)** - making changes, adding a feature (with a worked example), tests.
-4. **[Deploying on your own computer](docs/DEPLOYING.md)** - production, releases, rollback, backups.
-5. **[Your own domain with Cloudflare Tunnel](docs/CLOUDFLARE_TUNNEL.md)** - public, with no router changes.
-6. **[Deploying to a cloud](docs/CLOUD.md)** - Azure, AWS, Google Cloud, Fly.io, Render, Railway, a VPS.
-7. **[Google sign-in](docs/GOOGLE_SIGNIN.md)** - optional.
-8. **[The CMS](docs/CMS.md)** - optional: pages written as markdown files.
-9. **[Settings reference](docs/CONFIGURATION.md)** - every setting and secret.
-10. **[Troubleshooting](docs/TROUBLESHOOTING.md)** - when something doesn't work.
+4. **[The database](docs/DATABASE.md)** - where your data should live, and switching to another database (e.g. Cosmos DB).
+5. **[Deploying on your own computer](docs/DEPLOYING.md)** - production, releases, rollback, backups.
+6. **[Your own domain with Cloudflare Tunnel](docs/CLOUDFLARE_TUNNEL.md)** - public, with no router changes.
+7. **[Deploying to a cloud](docs/CLOUD.md)** - Azure, AWS, Google Cloud, Fly.io, Render, Railway, a VPS.
+8. **[Google sign-in](docs/GOOGLE_SIGNIN.md)** - optional.
+9. **[The CMS](docs/CMS.md)** - optional: pages written as markdown files.
+10. **[Settings reference](docs/CONFIGURATION.md)** - every setting and secret.
+11. **[Troubleshooting](docs/TROUBLESHOOTING.md)** - when something doesn't work.
 
 ## Starting your next project from this one
 
@@ -86,11 +87,12 @@ client/              the website (Vue). Pages are in client/src/views/
 src/WebBase.Api/     the API (C#). Endpoints are in Controllers/
 tests/WebBase.Tests/ automated tests for the API
 ops/                 the production Dockerfile and database setup
+examples/            optional pieces to copy in, e.g. a Cosmos DB database
 content/             pages for the optional CMS (markdown files)
 docs/                the guides above (also shown in the site at /docs)
 scripts/             helpers: tests, migrations, backups, cloud deploys
 compose.dev.yaml     what ./dev.sh runs
-compose.prod.yaml    what ./deploy.sh and ./tunnel.sh run
+compose.prod.yaml    what ./deploy.sh and ./tunnel.sh run (+ compose.prod-db.yaml: its database container)
 .env.example         every setting, explained; ./setup.sh copies it to .env.local
 setup.sh dev.sh deploy.sh tunnel.sh   the four commands you'll use most
 CLAUDE.md            notes for AI coding assistants working in this repository

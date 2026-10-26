@@ -3,6 +3,9 @@
 #
 #   ./scripts/restore.sh backups/webbase-prod-20261025-030000.sql.gz          into prod
 #   ./scripts/restore.sh backups/webbase-prod-20261025-030000.sql.gz dev      into development
+#
+# Prod means its managed database if PROD_DATABASE_URL is set. That's also how
+# to move to one: back up the container, set PROD_DATABASE_URL, restore.
 . "$(dirname "$0")/lib.sh"
 need_docker
 
@@ -14,6 +17,9 @@ case "$ENVIRONMENT" in
   *)    die "The environment is prod or dev." ;;
 esac
 
+[ "$( (gunzip -c "$FILE" 2>/dev/null || true) | grep -c "PostgreSQL database dump complete")" -gt 0 ] \
+  || die "${FILE} isn't a complete backup (damaged, or from a backup that failed). Nothing was changed."
+
 warn "This replaces EVERYTHING in the ${ENVIRONMENT} database with ${FILE}."
 confirm "Continue?" || exit 1
 
@@ -23,5 +29,11 @@ if [ "$ENVIRONMENT" = prod ]; then
 fi
 
 say "Restoring"
-gunzip -c "$FILE" | dc "$ENVIRONMENT" exec -T db psql -q -v ON_ERROR_STOP=1 -U "$USER_NAME" -d "$SLUG" >/dev/null
+URL=""
+[ "$ENVIRONMENT" = prod ] && URL="$(env_value PROD_DATABASE_URL)"
+if [ -n "$URL" ]; then
+  gunzip -c "$FILE" | docker run --rm -i "$PG_IMAGE" psql -q -v ON_ERROR_STOP=1 "$URL" >/dev/null
+else
+  gunzip -c "$FILE" | dc "$ENVIRONMENT" exec -T db psql -q -v ON_ERROR_STOP=1 -U "$USER_NAME" -d "$SLUG" >/dev/null
+fi
 ok "Restored ${ENVIRONMENT} from ${FILE}"

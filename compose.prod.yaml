@@ -1,44 +1,24 @@
 # PROD: the copy real people use. Started by ./deploy.sh.
 #
 #   app          the production image (website + API in one), on 127.0.0.1:8080
-#   db           PostgreSQL, with no port open at all - only `app` can reach it
 #   cloudflared  only when ./tunnel.sh on: carries your domain to `app`
+#   db           PostgreSQL on this computer - in compose.prod-db.yaml, used
+#                unless PROD_DATABASE_URL in .env.local names a managed
+#                database instead (docs/DEPLOYING.md, "A managed database")
 #
 # Unlike development this runs a built image, not your source folder: what
 # you deployed keeps running exactly as it was, whatever you edit next.
 name: webbase-prod
 
 services:
-  db:
-    image: postgres:18.6-alpine
-    environment:
-      POSTGRES_DB: webbase
-      # The owner: creates and changes tables. Used only by migrations.
-      POSTGRES_USER: webbase_owner
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.local (./setup.sh does this)}
-      # Read by ops/postgres/init to create the app's own, weaker role.
-      APP_DB_PASSWORD: ${POSTGRES_APP_PASSWORD:?Set POSTGRES_APP_PASSWORD in .env.local (./setup.sh does this)}
-    volumes:
-      # Postgres 18 keeps its data in a versioned folder under /var/lib/postgresql.
-      - ./.docker-data/prod-postgres:/var/lib/postgresql
-      - ./ops/postgres/init:/docker-entrypoint-initdb.d:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U webbase_owner -d webbase"]
-      interval: 2s
-      timeout: 3s
-      retries: 30
-    restart: unless-stopped
-
   app:
     image: webbase-app:prod
     environment:
       App__Environment: prod
       App__Name: ${APP_NAME:-WebBase}
-      # Requests run as webbase_app: it can read and write rows but cannot
-      # create, change or drop tables. A bug can't take the schema with it.
-      ConnectionStrings__Default: "Host=db;Port=5432;Database=webbase;Username=webbase_app;Password=${POSTGRES_APP_PASSWORD}"
-      # Migrations at startup run as the owner, on a connection that closes after.
-      ConnectionStrings__Migration: "Host=db;Port=5432;Database=webbase;Username=webbase_owner;Password=${POSTGRES_PASSWORD};Pooling=false"
+      # A managed database, if you use one. Empty = the db container
+      # (compose.prod-db.yaml sets the connection instead).
+      DATABASE_URL: ${PROD_DATABASE_URL:-}
       Jwt__Key: ${JWT_KEY:?Set JWT_KEY in .env.local (./setup.sh does this)}
       Auth__Google__ClientId: ${GOOGLE_CLIENT_ID:-}
       # The CMS's pages are inside the image (content/ as of the release).
@@ -46,9 +26,6 @@ services:
     ports:
       # This computer only. The public reaches it through the tunnel below.
       - "127.0.0.1:${PROD_PORT:-8080}:8080"
-    depends_on:
-      db:
-        condition: service_healthy
     restart: unless-stopped
 
   # Started only by ./tunnel.sh on (the "tunnel" profile), so going public is

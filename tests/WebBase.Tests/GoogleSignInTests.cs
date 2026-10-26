@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using WebBase.Api.Data;
+using WebBase.Api.Data.Postgres;
 using WebBase.Api.Services;
 
 namespace WebBase.Tests;
@@ -10,11 +10,13 @@ public class GoogleSignInTests
     private static AppDbContext NewDb() =>
         new(new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
 
+    private static AuthService Auth(AppDbContext db) => new(new PostgresUserStore(db));
+
     [Fact]
     public async Task A_new_google_account_makes_a_passwordless_user()
     {
         await using var db = NewDb();
-        var result = await new AuthService(db).SignInWithGoogleAsync(new("sub-1", "New@Example.com", true, "New Person"));
+        var result = await Auth(db).SignInWithGoogleAsync(new("sub-1", "New@Example.com", true, "New Person"));
 
         Assert.NotNull(result.User);
         Assert.Equal("new@example.com", result.User!.Email);
@@ -26,7 +28,7 @@ public class GoogleSignInTests
     public async Task A_verified_email_links_to_the_existing_account_and_keeps_its_password()
     {
         await using var db = NewDb();
-        var auth = new AuthService(db);
+        var auth = Auth(db);
         var original = (await auth.RegisterAsync("me@example.com", "my password", "Me")).User!;
 
         var viaGoogle = (await auth.SignInWithGoogleAsync(new("sub-2", "me@example.com", true, "Me"))).User!;
@@ -39,7 +41,7 @@ public class GoogleSignInTests
     public async Task An_unverified_email_is_never_matched_to_an_existing_account()
     {
         await using var db = NewDb();
-        var auth = new AuthService(db);
+        var auth = Auth(db);
         await auth.RegisterAsync("victim@example.com", "their password", null);
 
         var result = await auth.SignInWithGoogleAsync(new("attacker", "victim@example.com", false, null));
@@ -51,7 +53,7 @@ public class GoogleSignInTests
     public async Task The_google_account_wins_even_if_its_email_changed()
     {
         await using var db = NewDb();
-        var auth = new AuthService(db);
+        var auth = Auth(db);
         var first = (await auth.SignInWithGoogleAsync(new("sub-3", "old@example.com", true, null))).User!;
 
         var later = (await auth.SignInWithGoogleAsync(new("sub-3", "new@example.com", true, null))).User!;

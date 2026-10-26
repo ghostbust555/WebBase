@@ -40,9 +40,10 @@ delete `DocsView.vue`, `components/DocsReader.vue` and `lib/docs.ts` too.
 The **Notes** feature is a complete example of every layer. To build your
 own, say "Recipes", copy it layer by layer:
 
-### 1. The table: a model
+### 1. The record: a model
 
-`src/WebBase.Api/Models/Recipe.cs`, copied from `Note.cs`:
+`src/WebBase.Api/Models/Recipe.cs`, copied from `Note.cs`. A plain class:
+no database code in it.
 
 ```csharp
 namespace WebBase.Api.Models;
@@ -51,53 +52,72 @@ public class Recipe
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid UserId { get; set; }          // who owns it
-    public User? User { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Instructions { get; set; } = string.Empty;
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 }
 ```
 
-Register it in `Data/AppDbContext.cs`:
+### 2. The store: what the app may ask the database
+
+The app reaches the database only through *stores* ([DATABASE.md](DATABASE.md)),
+so it doesn't depend on which database is behind them.
+
+`src/WebBase.Api/Data/IRecipeStore.cs`, copied from `INoteStore.cs`. Every
+method takes the owner's id, so no caller can reach someone else's recipe:
 
 ```csharp
-public DbSet<Recipe> Recipes => Set<Recipe>();
+namespace WebBase.Api.Data;
+
+public interface IRecipeStore
+{
+    Task<IReadOnlyList<Recipe>> ListAsync(Guid userId, CancellationToken ct = default);
+    Task AddAsync(Recipe recipe, CancellationToken ct = default);
+    Task<bool> RemoveAsync(Guid userId, Guid recipeId, CancellationToken ct = default);
+}
 ```
 
-and, in `OnModelCreating`, any limits and indexes (copy the `Note` block).
+Its PostgreSQL version, `Data/Postgres/PostgresRecipeStore.cs`, is a copy of
+`PostgresNoteStore.cs` with *Note* changed to *Recipe*. Then, in the same folder:
 
-### 2. The migration
+- `AppDbContext.cs`: add the table, `public DbSet<Recipe> Recipes => Set<Recipe>();`,
+  and in `OnModelCreating` its limits and indexes (copy the `Note` block).
+- `PostgresDatabase.cs`: register it, next to the others in `AddPostgresDatabase`:
+  `services.AddScoped<IRecipeStore, PostgresRecipeStore>();`
+
+### 3. The migration
 
 ```bash
 ./scripts/ef.sh migrations add AddRecipes
 ```
 
-This writes a file in `src/WebBase.Api/Migrations/` that describes the change
-(here, "create table Recipes"). **Commit it.** You never run it by hand: the
-API applies any new migrations every time it starts, in development and in
-production alike.
+This writes a file in `src/WebBase.Api/Data/Postgres/Migrations/` that
+describes the change (here, "create table Recipes"). **Commit it.** You never
+run it by hand: the API applies any new migrations every time it starts, in
+development and in production alike.
 
 Made a mistake, and haven't started the app since? `./scripts/ef.sh migrations remove`
-deletes the last one. If it has already been applied, change the model again
-and add another migration instead.
+(with `./dev.sh` running) deletes the last one. If it has already been
+applied, change the model again and add another migration instead.
 
-### 3. The endpoints: a controller
+### 4. The endpoints: a controller
 
-`Controllers/RecipesController.cs`, copied from `NotesController.cs`. Keep the
+`Controllers/RecipesController.cs`, copied from `NotesController.cs`. It asks
+for `IRecipeStore` in its constructor, never for the database itself. Keep the
 two habits that file shows:
 
 - **`[Authorize]`** on the class, if only signed-in users may use it.
-- **Every query filters by `User.GetUserId()`**, so nobody can read or change
-  someone else's rows by guessing an id.
+- **Pass `User.GetUserId()` to every store call**, so nobody can read or
+  change someone else's rows by guessing an id.
 
 Request and response shapes go in `Contracts/` (copy `NoteContracts.cs`).
-Return those, not the model itself, so a column you add later can't leak out
+Return those, not the model itself, so a field you add later can't leak out
 by accident.
 
 The new endpoints appear at <http://localhost:5173/scalar> straight away, and
 you can try them there.
 
-### 4. The website: api.ts and a page
+### 5. The website: api.ts and a page
 
 In `client/src/api.ts`, add the type and the calls (copy `Note` and `notesApi`):
 
@@ -124,21 +144,29 @@ and a link in the menu in `client/src/App.vue`:
 <RouterLink to="/recipes">Recipes</RouterLink>
 ```
 
-### 5. A test
+### 6. Tests
 
-Copy `tests/WebBase.Tests/NotesApiTests.cs` to `RecipesApiTests.cs`. Keep the
-"one user cannot see another user's rows" test above all. Then
-`./scripts/test.sh`.
+- **The API**: copy `tests/WebBase.Tests/NotesApiTests.cs` to
+  `RecipesApiTests.cs`. Keep the "one user cannot see another user's rows"
+  test above all.
+- **The store**: copy the notes tests in
+  `tests/WebBase.Tests/StoreContract/StoreContractTests.cs` for recipes. They
+  run against real PostgreSQL, and against any other database you add later.
+
+Then `./scripts/test.sh`.
 
 ## Removing the example
 
 Once you no longer need Notes as a pattern, delete:
 
 - `src/WebBase.Api/Models/Note.cs`, `Controllers/NotesController.cs`, `Contracts/NoteContracts.cs`
-- the `Notes` lines in `Data/AppDbContext.cs` and `Models/User.cs`
+- `Data/INoteStore.cs` and `Data/Postgres/PostgresNoteStore.cs`, and the `Note`
+  lines in `Data/Postgres/AppDbContext.cs` and `Data/Postgres/PostgresDatabase.cs`
 - `client/src/views/NotesView.vue`, the `notesApi`/`Note` part of `client/src/api.ts`,
   its route in `router.ts`, and its menu link in `App.vue`
-- `tests/WebBase.Tests/NotesApiTests.cs` and the notes checks in `scripts/smoke.sh`
+- `tests/WebBase.Tests/NotesApiTests.cs`, the notes tests (and the one note
+  line in `Changing_a_returned_user_saves_nothing_until_update`) in
+  `StoreContract/StoreContractTests.cs`, and the notes checks in `scripts/smoke.sh`
 
 then `./scripts/ef.sh migrations add RemoveNotes` and `./scripts/test.sh`.
 
@@ -150,6 +178,10 @@ then `./scripts/ef.sh migrations add RemoveNotes` and `./scripts/test.sh`.
   an in-memory database, called over HTTP like the browser does. `TestApp.cs`
   sets it up, and `SignedInClientAsync()` gives you a client that's already
   signed in.
+- **The store contract tests** (`tests/WebBase.Tests/StoreContract/`): every
+  store against a real PostgreSQL, which `test.sh` starts and removes again.
+  Each test gets a fresh database, built by the migrations, so those are
+  tested too. Run from an IDE without `TEST_POSTGRES` set, they show as skipped.
 - **The website's type check and build.** TypeScript catches calling the API
   with the wrong shape, typos in property names, and so on.
 

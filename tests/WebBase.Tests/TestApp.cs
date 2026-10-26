@@ -6,13 +6,17 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using WebBase.Api.Contracts;
-using WebBase.Api.Data;
+using WebBase.Api.Data.Postgres;
 
 namespace WebBase.Tests;
 
 /// <summary>
 /// The whole API, started in memory with an in-memory database instead of
 /// PostgreSQL. Tests talk to it over HTTP exactly as the browser does.
+///
+/// EF's in-memory database doesn't enforce unique indexes or run migrations,
+/// so the stores themselves are tested against real PostgreSQL instead, in
+/// StoreContract/.
 /// </summary>
 public class TestApp : WebApplicationFactory<Program>
 {

@@ -14,7 +14,7 @@ public record AuthResult(User? User, string? Error)
 /// Google sign-in to the right person. Knows nothing about HTTP, so it can be
 /// tested on its own.
 /// </summary>
-public class AuthService(AppDbContext db)
+public class AuthService(IUserStore users)
 {
     public const int MinPasswordLength = 8;
 
@@ -30,20 +30,26 @@ public class AuthService(AppDbContext db)
         if (!email.Contains('@') || email.Length > 320) return AuthResult.Fail("Enter a valid email address.");
         if ((password ?? "").Length < MinPasswordLength)
             return AuthResult.Fail($"Passwords need at least {MinPasswordLength} characters.");
-        if (await db.Users.AnyAsync(u => u.Email == email))
-            return AuthResult.Fail("That email already has an account. Try signing in.");
+        const string taken = "That email already has an account. Try signing in.";
+        if (await users.FindByEmailAsync(email) != null) return AuthResult.Fail(taken);
 
         var user = new User { Email = email, DisplayName = CleanName(displayName, email) };
         user.PasswordHash = Hasher.HashPassword(user, password!);
-        db.Users.Add(user);
-        await db.SaveChangesAsync();
+        try
+        {
+            await users.AddAsync(user);
+        }
+        catch (DuplicateKeyException)
+        {
+            return AuthResult.Fail(taken); // someone registered it a moment ago
+        }
         return AuthResult.Ok(user);
     }
 
     public async Task<AuthResult> LoginAsync(string email, string password)
     {
         email = NormalizeEmail(email);
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
+        var user = await users.FindByEmailAsync(email);
 
         // One message for both "no such account" and "wrong password", so the
         // login form can't be used to find out who has an account.
@@ -55,7 +61,7 @@ public class AuthService(AppDbContext db)
         if (verdict == PasswordVerificationResult.SuccessRehashNeeded)
         {
             user.PasswordHash = Hasher.HashPassword(user, password!);
-            await db.SaveChangesAsync();
+            await users.UpdateAsync(user);
         }
         return AuthResult.Ok(user);
     }
@@ -75,33 +81,40 @@ public class AuthService(AppDbContext db)
     {
         if (string.IsNullOrWhiteSpace(account.Subject)) return AuthResult.Fail("Google did not say who that was.");
 
-        var existing = await db.Users.FirstOrDefaultAsync(u => u.GoogleSubject == account.Subject);
+        var existing = await users.FindByGoogleSubjectAsync(account.Subject);
         if (existing != null) return AuthResult.Ok(existing);
 
         var email = NormalizeEmail(account.Email);
         if (email.Length == 0 || !account.EmailVerified)
             return AuthResult.Fail("That Google account has no confirmed email address.");
 
-        var byEmail = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
-        if (byEmail != null)
+        try
         {
-            byEmail.GoogleSubject = account.Subject;
-            await db.SaveChangesAsync();
-            return AuthResult.Ok(byEmail);
-        }
+            var byEmail = await users.FindByEmailAsync(email);
+            if (byEmail != null)
+            {
+                byEmail.GoogleSubject = account.Subject;
+                await users.UpdateAsync(byEmail);
+                return AuthResult.Ok(byEmail);
+            }
 
-        var user = new User { Email = email, GoogleSubject = account.Subject, DisplayName = CleanName(account.Name, email) };
-        db.Users.Add(user);
-        await db.SaveChangesAsync();
-        return AuthResult.Ok(user);
+            var user = new User { Email = email, GoogleSubject = account.Subject, DisplayName = CleanName(account.Name, email) };
+            await users.AddAsync(user);
+            return AuthResult.Ok(user);
+        }
+        catch (DuplicateKeyException)
+        {
+            // Two sign-ins with the same new Google account at once; the other won.
+            return AuthResult.Fail("That sign-in overlapped with another one. Please try again.");
+        }
     }
 
     public async Task<User?> UpdateDisplayNameAsync(Guid userId, string displayName)
     {
-        var user = await db.Users.FindAsync(userId);
+        var user = await users.FindByIdAsync(userId);
         if (user == null) return null;
         user.DisplayName = CleanName(displayName, user.Email);
-        await db.SaveChangesAsync();
+        await users.UpdateAsync(user);
         return user;
     }
 
