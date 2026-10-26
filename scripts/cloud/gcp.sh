@@ -14,6 +14,8 @@
 # has it, already logged in, plus git and Docker: nothing to install.
 #
 # Settings (environment variables, or lines in .env.local; none are required):
+#   GCP_TIER           free or standard                    default free. standard = always one copy
+#                      running (no cold starts), up to 10, 1 GB, and Cloud SQL (roughly $35-45/month)
 #   GCP_PROJECT        project id                  default: gcloud's current project
 #   GCP_REGION         region                      default us-central1. Free tier: us-central1, us-east1, us-west1
 #   GCP_DATABASE_URL   postgres://... for the app, e.g. a free Neon database. Asked for when
@@ -28,6 +30,7 @@ need_cli gcloud "Install it (https://cloud.google.com/sdk/docs/install), or run 
 PROJECT="$(setting GCP_PROJECT "$(gcloud config get-value project 2>/dev/null)")"
 [ -n "$PROJECT" ] || die "No Google Cloud project. Pick one first: gcloud config set project YOUR-PROJECT-ID"
 REGION="$(setting GCP_REGION us-central1)"
+TIER="$(tier GCP_TIER)"
 SERVICE="${SLUG}"
 REPO="${SLUG}"
 SQL_INSTANCE="${SLUG}-db"
@@ -80,12 +83,17 @@ app_env() {
   echo "^@^${pairs[*]}"
 }
 
+# Free: scale to zero, two copies at most (caps the bill), the smallest memory.
+# Standard: one copy always running, so no cold starts.
+if [ "$TIER" = free ]; then SIZE=(--min-instances 0 --max-instances 2 --memory 512Mi); SQL_TIER=db-f1-micro
+else SIZE=(--min-instances 1 --max-instances 10 --memory 1Gi); SQL_TIER=db-g1-small; fi
+
 # Everything about the service that setup decides.
 service_config() {
   CONFIG=(--service-account "$RUN_SA" --port 8080
     # Request-based billing (CPU only while answering) and scale to zero:
     # what Cloud Run's free tier covers. Two instances at most caps the bill.
-    --cpu-throttling --min-instances 0 --max-instances 2 --cpu 1 --memory 512Mi
+    --cpu-throttling --cpu 1 "${SIZE[@]}"
     --set-env-vars "$(app_env)"
     --set-secrets "Jwt__Key=${JWT_SECRET}:latest,DATABASE_URL=${DB_SECRET}:latest")
   # Cloud SQL is reached through a socket Cloud Run mounts at /cloudsql/...
@@ -93,8 +101,6 @@ service_config() {
     CONFIG+=(--add-cloudsql-instances "${PROJECT}:${REGION}:${SQL_INSTANCE}")
   fi
 }
-
-can_build() { command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; }
 
 build_image() {
   gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet >/dev/null 2>&1
@@ -114,7 +120,7 @@ setup_database() {
   local url; url="$(setting GCP_DATABASE_URL)"
   if [ -n "$url" ]; then
     put_secret "$DB_SECRET" "$url"
-  elif [ "$(setting GCP_CLOUD_SQL)" = true ]; then
+  elif [ "$(setting GCP_CLOUD_SQL)" = true ] || [ "$TIER" = standard ]; then
     setup_cloud_sql
   elif exists gcloud secrets describe "$DB_SECRET"; then
     ok "Database: keeping the one already set up"
@@ -135,12 +141,12 @@ setup_database() {
 }
 
 setup_cloud_sql() {
-  warn "Cloud SQL isn't in the free tier: about \$10/month while it exists."
+  warn "Cloud SQL isn't in the free tier: about \$10/month (db-f1-micro) or \$26 (db-g1-small, GCP_TIER=standard) while it exists."
   gcloud services enable sqladmin.googleapis.com "${G[@]}"
   say "Cloud SQL instance ${SQL_INSTANCE} (the slowest step: 5-10 minutes)"
   exists gcloud sql instances describe "$SQL_INSTANCE" \
     || gcloud sql instances create "$SQL_INSTANCE" "${G[@]}" --region "$REGION" \
-         --database-version POSTGRES_17 --edition ENTERPRISE --tier db-f1-micro --storage-size 10
+         --database-version POSTGRES_17 --edition ENTERPRISE --tier "$SQL_TIER" --storage-size 10
   exists gcloud sql databases describe "$SLUG" --instance "$SQL_INSTANCE" \
     || gcloud sql databases create "$SLUG" --instance "$SQL_INSTANCE" "${G[@]}"
   if ! secret_value "$DB_SECRET" | grep -q '/cloudsql/'; then
@@ -315,5 +321,5 @@ JSON
     ok "Deleted."
     ;;
   *)
-    sed -n '2,25p' "$0"; exit 1 ;;
+    sed -n '2,26p' "$0"; exit 1 ;;
 esac

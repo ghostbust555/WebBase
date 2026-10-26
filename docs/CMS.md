@@ -224,9 +224,12 @@ Things that change once content is in a bucket:
 
 On a cloud host, give the app access with the cloud's own identity, not a key:
 
-- **AWS (ECS)**: allow the task role `s3:ListBucket` and `s3:GetObject` on the bucket.
-- **Google Cloud (Cloud Run)**: nothing to do, `gcp.sh setup` does it.
-- **Azure (Container Apps)**: turn on the app's managed identity
+- **With the cloud scripts**: nothing to do. `gcp.sh`, `azure.sh` and `aws.sh`
+  setup make the bucket or container and the app's permission to read it
+  ([GOOGLE_CLOUD.md](GOOGLE_CLOUD.md#the-cms-in-a-cloud-storage-bucket),
+  [AZURE.md](AZURE.md#files-for-the-cms-in-blob-storage), [AWS.md](AWS.md#files-for-the-cms-in-s3)).
+- **AWS (ECS), by hand**: allow the task role `s3:ListBucket` and `s3:GetObject` on the bucket.
+- **Azure (Container Apps), by hand**: turn on the app's managed identity
   (`az containerapp identity assign --system-assigned`) and give it
   *Storage Blob Data Reader* on the container.
 - **Elsewhere** (Render, Fly, a non-AWS bucket...): an access key or SAS

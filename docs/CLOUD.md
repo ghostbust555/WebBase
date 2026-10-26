@@ -7,7 +7,7 @@ run it. This page covers:
 - [The database: use a managed one](#the-database-use-a-managed-one)
 - [The CMS content](#the-cms-content), if you use it
 - [What every host needs](#what-every-host-needs), which is the whole story if your host isn't listed
-- Scripted: [Azure](#microsoft-azure), [AWS](#amazon-web-services-aws), [Google Cloud](#google-cloud) (free tier, browser only: [GOOGLE_CLOUD.md](GOOGLE_CLOUD.md))
+- Scripted, each with a free setup and a standard one, and each doable from a browser: [Google Cloud](#google-cloud) ([GOOGLE_CLOUD.md](GOOGLE_CLOUD.md)), [Azure](#microsoft-azure) ([AZURE.md](AZURE.md)), [AWS](#amazon-web-services-aws) ([AWS.md](AWS.md))
 - Click-through: [Render](#render), [Railway](#railway), [Fly.io](#flyio), [DigitalOcean](#digitalocean-app-platform)
 - [Any Linux server](#any-linux-server-vps), the same as running at home
 
@@ -16,9 +16,20 @@ for a small site and needs only a browser to set up ([GOOGLE_CLOUD.md](GOOGLE_CL
 Render or Railway (both click-through, with a database included) or a VPS
 (about $5/month, plus a managed database once the data matters) are simple too.
 Pick Azure or AWS when you already use one of them, need its other
-services, or expect to need to scale. Their scripts here do the setup
-in one command, but each platform has more parts to understand and its own
+services, or expect to need to scale. Their scripts do the setup in one
+command too, with a free setup (Azure: about $5/month, mostly the image
+registry; AWS: about nothing, with a free Neon database) and a standard one
+that's always on. Each platform has more parts to understand and its own
 billing to watch.
+
+| | Free setup | Standard setup | Files for the CMS |
+|---|---|---|---|
+| **Google Cloud** | Cloud Run + free Neon database: **$0** | Cloud Run always on + Cloud SQL: ~$35-45/month | Cloud Storage (`gcs`) |
+| **Azure** | Container Apps + PostgreSQL (free 12 months): ~**$5/month** | always on + General Purpose database: ~$150-200/month | Blob Storage (`azure`) |
+| **AWS** | Lambda + free Neon database: **~$0** | ECS Express Mode + RDS: ~$40-70/month | S3 (`s3`) |
+
+Choose with `GCP_TIER`, `AZURE_TIER` or `AWS_TIER` (`free` by default,
+or `standard`).
 
 > **Cost**: everything below costs money once free tiers run out, mostly for
 > the database, which runs all the time. Each section gives a rough idea.
@@ -42,8 +53,8 @@ Every option on this page does it that way:
 
 | Host | Managed PostgreSQL | Set up by |
 |---|---|---|
-| Azure | Azure Database for PostgreSQL (Flexible Server) | `azure.sh setup` |
-| AWS | Amazon RDS for PostgreSQL | `aws.sh setup` |
+| Azure | Azure Database for PostgreSQL (Flexible Server): free for a new account's first 12 months | `azure.sh setup` |
+| AWS | Amazon RDS for PostgreSQL (`AWS_TIER=standard`); the free setup uses a free Neon database | `aws.sh setup` |
 | Google Cloud | Cloud SQL for PostgreSQL (or a free Neon database, [GOOGLE_CLOUD.md](GOOGLE_CLOUD.md)) | `gcp.sh setup` |
 | Render, Railway, DigitalOcean, Fly.io | the host's own PostgreSQL | a few clicks, below |
 | Anything | [Neon](https://neon.tech), [Supabase](https://supabase.com) (both have free tiers) | paste its connection string as `DATABASE_URL` |
@@ -68,11 +79,11 @@ Each is a module the app has to be built with first: `./scripts/module.sh add s3
 
 The scripts below pass `CMS_ENABLED`, `CMS_SOURCE` and the bucket settings
 (from `.env.local`, or `cloud.env`) on to the app. `gcp.sh setup` also creates
-the Google bucket and lets the app read it. On AWS and Azure, give the app
-access once yourself ([CMS.md](CMS.md#in-a-cloud)): the ECS task role, or the
-container app's managed identity. The scripts never copy an access key or
-connection string to the cloud; they warn if `.env.local` has one, since in
-the cloud it belongs in the host's secrets.
+the Google bucket, `azure.sh setup` the Azure storage account and container,
+and `aws.sh setup` the S3 bucket, each private and readable only by the app's
+own identity. The scripts never copy an access key or connection string to
+the cloud; they warn if `.env.local` has one, since in the cloud it belongs in
+the host's secrets.
 
 ---
 
@@ -118,29 +129,27 @@ an Apple Silicon Mac.
 
 **Azure Container Apps** runs the container, with HTTPS and an address
 included. **Azure Database for PostgreSQL** (Flexible Server) holds the data.
-Roughly $15-30/month at the smallest sizes. The app can scale to zero, but
-the database doesn't.
 
-1. Install the Azure CLI: <https://aka.ms/installazurecli>
-2. `az login`
-3. `./scripts/cloud/azure.sh setup`
+**The full guide is [AZURE.md](AZURE.md)**: what's free (Container Apps'
+monthly grant, the database for a new account's first year; the image
+registry is about $5/month), Azure Cloud Shell so nothing is installed, and
+Blob Storage for the CMS. In short:
 
-Setup takes 10-15 minutes, most of it creating the database server. It
-creates one **resource group** (a folder holding everything), named
-`webbase-rg`, containing the image registry, the database, and the app. At
-the end it prints your address: `https://webbase.<something>.azurecontainerapps.io`.
+```bash
+# in Azure Cloud Shell (https://shell.azure.com), in a clone of your repository
+./scripts/cloud/azure.sh setup     # 10-20 minutes, then prints your address
+```
 
 | Later | |
 |---|---|
-| Release a new version | `./scripts/cloud/azure.sh deploy` |
-| The address | `./scripts/cloud/azure.sh url` |
-| Live logs | `./scripts/cloud/azure.sh logs` |
+| Release a new version | `git pull && ./scripts/cloud/azure.sh deploy` |
+| Change a setting | `cloud.env` (public settings), then `deploy`; secrets and the database: `setup` again |
+| The address, live logs | `./scripts/cloud/azure.sh url` / `logs` |
 | Delete everything (data too) | `./scripts/cloud/azure.sh destroy` |
 
-Options, as lines in `.env.local`: `AZURE_LOCATION=westeurope` (the default is
-`eastus`), `AZURE_RESOURCE_GROUP=...`, and `AZURE_DATABASE_URL=...` to use a
-database you already have instead of creating one. The database password it
-generates is saved in `.env.local` as `AZURE_DB_PASSWORD`.
+The app runs as a managed identity that can pull from the registry and read
+the CMS container, and nothing else; there are no registry passwords or
+storage keys. `AZURE_TIER=standard` keeps it always on with a bigger database.
 
 **Your own domain**: in the Azure portal, open the Container App → *Custom
 domains* → *Add*, and follow its instructions for the DNS record. It issues a
@@ -150,55 +159,35 @@ certificate for free.
 
 ## Amazon Web Services (AWS)
 
-**Amazon ECS Express Mode** runs the container. One command creates the
-service, an HTTPS load balancer, an address and auto-scaling. (AWS App
-Runner, the older option, stopped taking new customers in 2026.) **Amazon
-RDS for PostgreSQL** holds the data. Roughly $20-40/month for the app, much
-of it the load balancer, plus about $15/month for the smallest database.
+Two shapes, chosen by `AWS_TIER`. **Free**: the container runs on **AWS
+Lambda** (always-free allowance, a public HTTPS address) with a free
+[Neon](https://neon.tech) database. **Standard**: **Amazon ECS Express Mode**
+(always-on containers and a load balancer) with **Amazon RDS for PostgreSQL**,
+private to your network.
 
-### The database
+**The full guide is [AWS.md](AWS.md)**: how AWS's free tier works now, AWS
+CloudShell so nothing is installed, and S3 for the CMS. In short:
 
-`aws.sh setup` creates an RDS PostgreSQL instance for you (`webbase-db`,
-size `db.t4g.micro`, daily backups kept for 7 days, encrypted). It sits in
-your account's **default VPC** (the network ECS Express Mode runs the app
-in), and is reachable only from inside it, never from the internet. Its
-password is saved in `.env.local` as `AWS_DB_PASSWORD`.
-
-To use a database you already have instead, put its address in `.env.local`
-before setup, and none is created:
-
+```bash
+# in AWS CloudShell (the >_ button in the console), in a clone of your repository
+./scripts/cloud/aws.sh setup       # asks for the database's connection string (free)
 ```
-AWS_DATABASE_URL=postgres://user:password@host:5432/dbname?sslmode=require
-```
-
-That can be another RDS instance (allow PostgreSQL, port 5432, from your
-default VPC in its security group), or a hosted Postgres outside AWS like
-[Neon](https://neon.tech) or [Supabase](https://supabase.com).
-
-### Deploy
-
-1. Install the AWS CLI v2 (<https://aws.amazon.com/cli/>). It must be recent
-   enough to know `aws ecs create-express-gateway-service`; update it if not.
-2. `aws configure` (or `aws sso login` if your organisation uses SSO)
-3. Optionally, in `.env.local`: `AWS_REGION=...` (the default is `us-east-1`),
-   `AWS_DATABASE_URL=...` (above), `AWS_DB_CLASS=...` for a bigger database.
-4. `./scripts/cloud/aws.sh setup`
-
-It creates the database (5-15 minutes, the slowest step), stores the secrets
-in SSM Parameter Store (encrypted), creates two IAM roles, uploads the image
-to ECR and creates the service. It prints an address like
-`https://webbase-xxxx.ecs.us-east-1.on.aws`.
 
 | Later | |
 |---|---|
-| Release a new version | `./scripts/cloud/aws.sh deploy`. AWS shifts traffic gradually and rolls back by itself if the new version fails |
-| The address | `./scripts/cloud/aws.sh url` |
-| Logs | AWS console → CloudWatch → Log groups |
-| Delete it | `./scripts/cloud/aws.sh destroy`. The RDS database it created goes too, after a final snapshot is taken. A database you brought (`AWS_DATABASE_URL`) is left alone |
+| Release a new version | `git pull && ./scripts/cloud/aws.sh deploy` |
+| Change a setting | `cloud.env` (public settings), then `deploy`; secrets and the database: `setup` again |
+| The address, logs | `./scripts/cloud/aws.sh url` / `logs` |
+| Delete it | `./scripts/cloud/aws.sh destroy`. The RDS database it created (standard) goes too, after a final snapshot. A database you brought (`AWS_DATABASE_URL`) is left alone |
 
-**Your own domain**: request a certificate in AWS Certificate Manager, add it
-to the load balancer's HTTPS listener, and point a DNS record at the load
-balancer. Or put Cloudflare in front: a proxied CNAME to the `on.aws` address.
+Secrets live in Parameter Store (encrypted). Each setup's IAM roles can read
+only this project's secrets and the CMS bucket.
+
+**Your own domain** (standard): request a certificate in AWS Certificate
+Manager, add it to the load balancer's HTTPS listener, and point a DNS record
+at the load balancer. Or put Cloudflare in front: a proxied CNAME to the
+`on.aws` address. (Free: a Lambda function URL has no custom domain; put
+Cloudflare in front, or use the standard setup.)
 
 ---
 
@@ -228,7 +217,8 @@ gcloud config set project <your-project-id>
 
 **Cloud SQL** (Google's own PostgreSQL, about $10/month, not free):
 `GCP_CLOUD_SQL=true ./scripts/cloud/gcp.sh setup` creates one (5-10 minutes)
-and connects the service to it.
+and connects the service to it. `GCP_TIER=standard` does that and also keeps
+one copy of the app always running.
 
 **Your own domain**: Cloud Run → your service → *Integrations / Custom
 domains*, or put Cloudflare in front.

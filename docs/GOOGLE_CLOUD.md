@@ -151,6 +151,7 @@ keeps that in your own browser.)
 | The site's name, Google sign-in's client id, the CMS | `cloud.env`, committed. Public settings only: the scripts refuse to run with a secret in it | Push. The deploy applies it |
 | The database | Cloud Shell: `GCP_DATABASE_URL='postgres://...' ./scripts/cloud/gcp.sh setup` | Applies at once |
 | Cloud SQL instead of Neon (about $10/month) | Cloud Shell: `GCP_CLOUD_SQL=true ./scripts/cloud/gcp.sh setup`. Starts with an empty database | Applies at once |
+| Always on, bigger, with Cloud SQL (about $35-45/month) | `GCP_TIER=standard` in `cloud.env`, then `setup` in Cloud Shell: one copy always running (no cold starts), up to 10, 1 GB | Applies at once |
 | Region | `GCP_REGION=...` for `setup` and in the GitHub variable. Changing it later means a new service: set it up fresh | |
 
 Google sign-in also needs your `run.app` address among the client's allowed

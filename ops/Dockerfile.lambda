@@ -1,0 +1,17 @@
+# The app image plus AWS Lambda Web Adapter, so the same container runs on
+# AWS Lambda (scripts/cloud/aws.sh, free tier). The adapter is a small
+# program Lambda starts next to the app: it turns Lambda's events into
+# ordinary HTTP requests to the app on port 8080. Everywhere else the extra
+# file is ignored.
+#
+# Not built directly: aws.sh builds ops/Dockerfile first and passes it as BASE.
+ARG BASE
+FROM public.ecr.aws/awsguru/aws-lambda-adapter:1.0.0 AS adapter
+
+FROM ${BASE}
+COPY --from=adapter /lambda-adapter /opt/extensions/lambda-adapter
+# Lambda's file system is read-only except /tmp.
+ENV AWS_LWA_PORT=8080 \
+    AWS_LWA_READINESS_CHECK_PATH=/api/health \
+    AWS_LWA_ASYNC_INIT=true \
+    DOTNET_BUNDLE_EXTRACT_BASE_DIR=/tmp

@@ -57,7 +57,7 @@ whether you're asking a person or an AI. Copy it in full.
 | Works on localhost, not on the domain | See the table at the end of [CLOUDFLARE_TUNNEL.md](CLOUDFLARE_TUNNEL.md#if-it-doesnt-work). |
 | "Too many attempts" when signing in | The rate limit: 10 tries a minute per visitor. Wait a minute. |
 | `Cms:Source is 'gcs', but this app is built with: files` (or `s3`, `azure`) | Build the app with that storage module: `./scripts/module.sh add gcs`, commit, deploy ([MODULES.md](MODULES.md)). |
-| Google Cloud Run: setup, the GitHub deploy, or the live site | The table at the end of [GOOGLE_CLOUD.md](GOOGLE_CLOUD.md#if-something-goes-wrong). |
+| A cloud script: setup, deploy, or the live site | The table at the end of [GOOGLE_CLOUD.md](GOOGLE_CLOUD.md#if-something-goes-wrong), [AZURE.md](AZURE.md#if-something-goes-wrong) or [AWS.md](AWS.md#if-something-goes-wrong). |
 | CMS pages say "The site's content can't be reached right now" (503) | The bucket can't be read: a wrong bucket, prefix or region, missing permission, or the service is down. The log line at startup names the store (`cms=on (s3://...)`), and `./deploy.sh logs` shows the error. |
 
 ## Signed in, then suddenly signed out

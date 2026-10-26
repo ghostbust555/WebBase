@@ -48,7 +48,7 @@ Never used a terminal, or don't have Docker yet? Start with
 | Back up the production database | `./scripts/backup.sh` |
 | Check a running site actually works | `./scripts/smoke.sh <address>` |
 | Deploy to Google Cloud Run, free, from GitHub on every push | [docs/GOOGLE_CLOUD.md](docs/GOOGLE_CLOUD.md): a browser is all you need |
-| Deploy to another cloud | `./scripts/cloud/azure.sh` / `aws.sh` / `gcp.sh` - see [docs/CLOUD.md](docs/CLOUD.md) |
+| Deploy to Azure or AWS, free setup or always-on | `./scripts/cloud/azure.sh setup` / `aws.sh setup` - see [docs/AZURE.md](docs/AZURE.md), [docs/AWS.md](docs/AWS.md) |
 | Use Cosmos DB, or S3 / Azure / Google storage for the CMS | `./scripts/module.sh add <name>` - see [docs/MODULES.md](docs/MODULES.md) |
 
 ## The guides
@@ -61,11 +61,13 @@ Never used a terminal, or don't have Docker yet? Start with
 6. **[Deploying on your own computer](docs/DEPLOYING.md)** - production, releases, rollback, backups.
 7. **[Your own domain with Cloudflare Tunnel](docs/CLOUDFLARE_TUNNEL.md)** - public, with no router changes.
 8. **[Google Cloud Run, for free](docs/GOOGLE_CLOUD.md)** - deployed from GitHub on every push; set up from a browser.
-9. **[Deploying to a cloud](docs/CLOUD.md)** - Azure, AWS, Google Cloud, Fly.io, Render, Railway, a VPS.
-10. **[Google sign-in](docs/GOOGLE_SIGNIN.md)** - optional.
-11. **[The CMS](docs/CMS.md)** - optional: pages written as markdown files, in the repository or a bucket.
-12. **[Settings reference](docs/CONFIGURATION.md)** - every setting and secret.
-13. **[Troubleshooting](docs/TROUBLESHOOTING.md)** - when something doesn't work.
+9. **[Azure Container Apps](docs/AZURE.md)** - about $5/month, or always-on; set up from Cloud Shell.
+10. **[Amazon Web Services](docs/AWS.md)** - free on Lambda, or always-on with RDS; set up from CloudShell.
+11. **[Deploying to a cloud](docs/CLOUD.md)** - the three above compared, plus Fly.io, Render, Railway, a VPS.
+12. **[Google sign-in](docs/GOOGLE_SIGNIN.md)** - optional.
+13. **[The CMS](docs/CMS.md)** - optional: pages written as markdown files, in the repository or a bucket.
+14. **[Settings reference](docs/CONFIGURATION.md)** - every setting and secret.
+15. **[Troubleshooting](docs/TROUBLESHOOTING.md)** - when something doesn't work.
 
 ## Starting your next project from this one
 

@@ -60,7 +60,10 @@ traps.
 - Prod = one image (`ops/Dockerfile`): the API serves the built SPA from wwwroot.
   Dev = three containers (`compose.dev.yaml`) running source with hot reload;
   Vite proxies `/api` to the API.
-- Cloud: `scripts/cloud/*.sh` read settings from the environment, then
+- Cloud: `scripts/cloud/{gcp,azure,aws}.sh` each take `*_TIER=free|standard` (free stays
+  inside the free tier; AWS free = Lambda via `ops/Dockerfile.lambda` + a Neon database).
+  They keep secrets in the cloud itself (Secret Manager, Container App secrets,
+  Parameter Store), not in `.env.local`, so they run from Cloud Shell. Scripts read settings from the environment, then
   `.env.local`, then the committed `cloud.env` (public settings only;
   `check_cloud_env` in `common.sh` refuses secret-looking keys).
   `.github/workflows/tests.yml` runs `test.sh` on every push;
@@ -82,7 +85,7 @@ Everything runs in Docker; no host SDKs are required.
 | End-to-end check of a running stack | `./scripts/smoke.sh [base-url]` |
 | Release prod locally / undo | `./deploy.sh` / `./deploy.sh rollback` |
 | Public via Cloudflare | `./tunnel.sh on` |
-| Cloud | `scripts/cloud/{azure,aws,gcp}.sh setup|deploy`; `gcp.sh github` connects Actions; generic `push-image.sh` |
+| Cloud | `scripts/cloud/{azure,aws,gcp}.sh setup|deploy|url|logs|destroy` (docs/AZURE.md, AWS.md, GOOGLE_CLOUD.md); `gcp.sh github` connects Actions; generic `push-image.sh` |
 | Shell scripts lint | `docker run --rm -v "$PWD:/m" -w /m koalaman/shellcheck:v0.10.0 -x -S warning *.sh scripts/*.sh scripts/cloud/*.sh` |
 
 ## Rules

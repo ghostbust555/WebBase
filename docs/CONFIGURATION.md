@@ -39,7 +39,8 @@ explained.
 | `DEV_API_PORT` | dev | API port (for tools; the browser doesn't need it), default 5000 |
 | `DEV_DB_PORT` | dev | Database port, default 5432 |
 | `PROD_PORT` | prod | Production's port on this computer, default 8080 |
-| `AZURE_*`, `AWS_*`, `GCP_*` | cloud scripts | See [CLOUD.md](CLOUD.md). Some are written here by the scripts themselves |
+| `GCP_TIER`, `AZURE_TIER`, `AWS_TIER` | cloud scripts | `free` (default) or `standard` (always on, bigger, costs money): [GOOGLE_CLOUD.md](GOOGLE_CLOUD.md), [AZURE.md](AZURE.md), [AWS.md](AWS.md) |
+| `GCP_*`, `AZURE_*`, `AWS_*` | cloud scripts | Region, project, your own database (`*_DATABASE_URL`), and so on: the top of each script in `scripts/cloud/` lists them. They can go in `cloud.env` too, except the database address, which is a secret |
 
 ### cloud.env: settings for the cloud, committed
 

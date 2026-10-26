@@ -21,7 +21,7 @@ export interface Doc {
 // Reading order for the side menu. Anything not listed comes after, A-Z.
 const ORDER = [
   'GETTING_STARTED', 'HOW_IT_FITS_TOGETHER', 'DEVELOPING', 'DATABASE', 'MODULES', 'CMS', 'DEPLOYING',
-  'CLOUDFLARE_TUNNEL', 'GOOGLE_CLOUD', 'CLOUD', 'GOOGLE_SIGNIN', 'CONFIGURATION', 'TROUBLESHOOTING', 'README'
+  'CLOUDFLARE_TUNNEL', 'GOOGLE_CLOUD', 'AZURE', 'AWS', 'CLOUD', 'GOOGLE_SIGNIN', 'CONFIGURATION', 'TROUBLESHOOTING', 'README'
 ]
 
 export const docs: Doc[] = Object.entries(files)

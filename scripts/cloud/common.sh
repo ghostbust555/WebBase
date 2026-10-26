@@ -26,8 +26,40 @@ check_cloud_env() {
 }
 check_cloud_env
 
-# Remember a setting in .env.local so the next run reuses it.
-remember() { [ -f .env.local ] || die "Run ./setup.sh first."; set_env_value "$1" "$2"; chmod 600 .env.local; }
+# Remember a setting in .env.local so the next run reuses it. Without one
+# (Cloud Shell, a fresh clone) nothing is lost: the scripts keep what they
+# need to find again in the cloud itself.
+remember() { [ -f .env.local ] || return 0; set_env_value "$1" "$2"; chmod 600 .env.local; }
+
+# The cost level for a cloud: free (default, stays inside the free tier where
+# the cloud has one) or standard (always-on and sturdier; costs money).
+# Usage: tier AZURE_TIER
+tier() {
+  local value; value="$(setting "$1" free)"
+  case "$value" in free|standard) echo "$value" ;; *) die "$1 is '${value}': use free or standard." ;;
+  esac
+}
+
+# Is there a Docker that can build the image? Without one (Cloud Shell on
+# some clouds, Claude Code on the web) the scripts build in the cloud instead.
+can_build() { command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; }
+
+# The app must be built with a module before a setting can use it.
+# Usage: need_module <name as in module.sh> <project folder name> <setting that asks for it>
+need_module() {
+  grep -q "$2.csproj" "${API_DIR}/WebBase.Api.csproj" \
+    || die "$3, but the app isn't built with that module yet: ./scripts/module.sh add $1, then commit and push."
+}
+
+# What the app is told about itself, as NAME=VALUE lines (empty ones left out):
+# the same for every cloud, so a change to cloud.env means the same everywhere.
+app_settings() {
+  { echo "App__Environment=prod"
+    echo "App__Name=$(setting APP_NAME WebBase)"
+    echo "Auth__Google__ClientId=$(setting GOOGLE_CLIENT_ID)"
+    cms_env
+  } | grep -vE '=$' || true
+}
 
 need_cli() { command -v "$1" >/dev/null 2>&1 || die "The '$1' command isn't installed. $2"; }
 
