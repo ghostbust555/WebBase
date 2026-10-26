@@ -35,6 +35,8 @@ services:
       Cms__Azure__Container: ${CMS_AZURE_CONTAINER:-}
       Cms__Azure__ContainerUrl: ${CMS_AZURE_CONTAINER_URL:-}
       Cms__Azure__Prefix: ${CMS_AZURE_PREFIX:-}
+      Cms__Gcs__Bucket: ${CMS_GCS_BUCKET:-}
+      Cms__Gcs__Prefix: ${CMS_GCS_PREFIX:-}
     ports:
       # This computer only. The public reaches it through the tunnel below.
       - "127.0.0.1:${PROD_PORT:-8080}:8080"

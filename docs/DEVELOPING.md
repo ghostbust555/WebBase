@@ -42,11 +42,12 @@ own, say "Recipes", copy it layer by layer:
 
 ### 1. The record: a model
 
-`src/WebBase.Api/Models/Recipe.cs`, copied from `Note.cs`. A plain class:
-no database code in it.
+`src/WebBase.Core/Models/Recipe.cs`, copied from `Note.cs`. A plain class:
+no database code in it. (`WebBase.Core` is the small project of contracts that
+the app and every database module share, [MODULES.md](MODULES.md).)
 
 ```csharp
-namespace WebBase.Api.Models;
+namespace WebBase.Models;
 
 public class Recipe
 {
@@ -63,11 +64,13 @@ public class Recipe
 The app reaches the database only through *stores* ([DATABASE.md](DATABASE.md)),
 so it doesn't depend on which database is behind them.
 
-`src/WebBase.Api/Data/IRecipeStore.cs`, copied from `INoteStore.cs`. Every
+`src/WebBase.Core/Data/IRecipeStore.cs`, copied from `INoteStore.cs`. Every
 method takes the owner's id, so no caller can reach someone else's recipe:
 
 ```csharp
-namespace WebBase.Api.Data;
+using WebBase.Models;
+
+namespace WebBase.Data;
 
 public interface IRecipeStore
 {
@@ -77,13 +80,20 @@ public interface IRecipeStore
 }
 ```
 
-Its PostgreSQL version, `Data/Postgres/PostgresRecipeStore.cs`, is a copy of
+Its PostgreSQL version goes in the Postgres module,
+`modules/WebBase.Database.Postgres/PostgresRecipeStore.cs`: a copy of
 `PostgresNoteStore.cs` with *Note* changed to *Recipe*. Then, in the same folder:
 
 - `AppDbContext.cs`: add the table, `public DbSet<Recipe> Recipes => Set<Recipe>();`,
   and in `OnModelCreating` its limits and indexes (copy the `Note` block).
-- `PostgresDatabase.cs`: register it, next to the others in `AddPostgresDatabase`:
+- `PostgresModule.cs`: register it, next to the others in `Register`:
   `services.AddScoped<IRecipeStore, PostgresRecipeStore>();`
+
+And one for the API tests, which run on an in-memory database: in
+`tests/WebBase.Testing/InMemory/InMemoryDatabase.cs`, an `InMemoryRecipeStore`
+(copy `InMemoryNoteStore`, plus a `Recipes` list in `InMemoryData`) and its
+line in `Register`. (Using the Cosmos DB module too? It needs a
+`CosmosRecipeStore` the same way.)
 
 ### 3. The migration
 
@@ -91,7 +101,7 @@ Its PostgreSQL version, `Data/Postgres/PostgresRecipeStore.cs`, is a copy of
 ./scripts/ef.sh migrations add AddRecipes
 ```
 
-This writes a file in `src/WebBase.Api/Data/Postgres/Migrations/` that
+This writes a file in `modules/WebBase.Database.Postgres/Migrations/` that
 describes the change (here, "create table Recipes"). **Commit it.** You never
 run it by hand: the API applies any new migrations every time it starts, in
 development and in production alike.
@@ -169,8 +179,8 @@ and a link in the menu in `client/src/App.vue`:
   `RecipesApiTests.cs`. Keep the "one user cannot see another user's rows"
   test above all.
 - **The store**: copy the notes tests in
-  `tests/WebBase.Tests/StoreContract/StoreContractTests.cs` for recipes. They
-  run against real PostgreSQL, and against any other database you add later.
+  `tests/WebBase.Testing/StoreContractTests.cs` for recipes. They run against
+  real PostgreSQL, the in-memory database, and any other database module.
 
 Then `./scripts/test.sh`.
 
@@ -178,14 +188,17 @@ Then `./scripts/test.sh`.
 
 Once you no longer need Notes as a pattern, delete:
 
-- `src/WebBase.Api/Models/Note.cs`, `Controllers/NotesController.cs`, `Contracts/NoteContracts.cs`
-- `Data/INoteStore.cs` and `Data/Postgres/PostgresNoteStore.cs`, and the `Note`
-  lines in `Data/Postgres/AppDbContext.cs` and `Data/Postgres/PostgresDatabase.cs`
+- `src/WebBase.Core/Models/Note.cs` and `src/WebBase.Core/Data/INoteStore.cs`
+- `src/WebBase.Api/Controllers/NotesController.cs`, `Contracts/NoteContracts.cs`
+- In `modules/WebBase.Database.Postgres/`: `PostgresNoteStore.cs`, and the `Note`
+  lines in `AppDbContext.cs`, `PostgresDatabase.cs` and `PostgresModule.cs`
+- The same in `modules/WebBase.Database.CosmosDB/` (`CosmosNoteStore.cs`...),
+  and `InMemoryNoteStore` in `tests/WebBase.Testing/InMemory/InMemoryDatabase.cs`
 - `client/src/views/NotesView.vue`, the `notesApi`/`Note` part of `client/src/api.ts`,
   its route in `router.ts`, and its menu link in `App.vue`
 - `tests/WebBase.Tests/NotesApiTests.cs`, the notes tests (and the one note
   line in `Changing_a_returned_user_saves_nothing_until_update`) in
-  `StoreContract/StoreContractTests.cs`, and the notes checks in `scripts/smoke.sh`
+  `tests/WebBase.Testing/StoreContractTests.cs`, and the notes checks in `scripts/smoke.sh`
 
 then `./scripts/ef.sh migrations add RemoveNotes` and `./scripts/test.sh`.
 
@@ -197,13 +210,14 @@ then `./scripts/ef.sh migrations add RemoveNotes` and `./scripts/test.sh`.
   an in-memory database, called over HTTP like the browser does. `TestApp.cs`
   sets it up, and `SignedInClientAsync()` gives you a client that's already
   signed in.
-- **The store contract tests** (`tests/WebBase.Tests/StoreContract/`): every
-  store against a real PostgreSQL, which `test.sh` starts and removes again.
-  Each test gets a fresh database, built by the migrations, so those are
-  tested too. Run from an IDE without `TEST_POSTGRES` set, they show as skipped.
-- **The content stores** (`tests/WebBase.Tests/ContentStores/`): the CMS's
-  folder, S3 and Azure Blob stores, the last two against local stand-ins
-  (S3Mock and Azurite) that `test.sh` starts too.
+- **Each module's tests** (`tests/WebBase.Database.*.Tests/`,
+  `tests/WebBase.FileStorage.*.Tests/`): the same contract suites
+  (`tests/WebBase.Testing/`) against each implementation. Postgres runs on a
+  real PostgreSQL that `test.sh` starts and removes again; each test gets a
+  fresh database, built by the migrations, so those are tested too. S3, Azure
+  Blob and Google Cloud Storage run against local stand-ins (S3Mock, Azurite,
+  fake-gcs-server) that `test.sh` starts too. Cosmos DB needs its emulator
+  (its README). Run from an IDE without these, they show as skipped.
 - **The website's type check and build.** TypeScript catches calling the API
   with the wrong shape, typos in property names, and so on. The API's types
   come from the C# (`client/src/api-types.ts`), and a test fails if that file

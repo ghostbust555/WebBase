@@ -2,13 +2,29 @@
 # Shared by the cloud scripts. Not run on its own.
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib.sh"
 
-# A cloud setting: from the environment if given, else .env.local, else the default.
+# A cloud setting: from the environment if given, else .env.local, else
+# cloud.env (committed, public settings only), else the default.
 setting() {
   local key="$1" default="${2:-}" value
   value="${!key:-}"
   [ -z "$value" ] && value="$(env_value "$key")"
+  [ -z "$value" ] && value="$(cloud_env_value "$key")"
   echo "${value:-$default}"
 }
+
+cloud_env_value() {
+  [ -f cloud.env ] || return 0
+  grep -E "^$1=" cloud.env | tail -1 | cut -d= -f2- || true
+}
+
+# cloud.env is in git for everyone to read: refuse to go on with a secret in it.
+check_cloud_env() {
+  [ -f cloud.env ] || return 0
+  local bad
+  bad="$(grep -E '^[A-Z0-9_]*(KEY|SECRET|PASSWORD|TOKEN|DATABASE_URL|CONNECTION_STRING)[A-Z0-9_]*=.' cloud.env | cut -d= -f1 | paste -sd ' ' - || true)"
+  [ -z "$bad" ] || die "cloud.env is committed to git, so it must not hold secrets: ${bad}. Move them to .env.local (the setup scripts put them in the cloud's secret store)."
+}
+check_cloud_env
 
 # Remember a setting in .env.local so the next run reuses it.
 remember() { [ -f .env.local ] || die "Run ./setup.sh first."; set_env_value "$1" "$2"; chmod 600 .env.local; }
@@ -36,7 +52,8 @@ CMS_SETTINGS=(Cms__Source:CMS_SOURCE
   Cms__S3__Bucket:CMS_S3_BUCKET Cms__S3__Prefix:CMS_S3_PREFIX Cms__S3__Region:CMS_S3_REGION
   Cms__S3__ServiceUrl:CMS_S3_SERVICE_URL
   Cms__Azure__ContainerUrl:CMS_AZURE_CONTAINER_URL Cms__Azure__Container:CMS_AZURE_CONTAINER
-  Cms__Azure__Prefix:CMS_AZURE_PREFIX)
+  Cms__Azure__Prefix:CMS_AZURE_PREFIX
+  Cms__Gcs__Bucket:CMS_GCS_BUCKET Cms__Gcs__Prefix:CMS_GCS_PREFIX)
 cms_env() {
   echo "Cms__Enabled=$(setting CMS_ENABLED false)"
   local pair value

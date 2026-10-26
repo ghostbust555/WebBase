@@ -23,10 +23,14 @@ RUN npm run build
 # ---- 2. Compile the API (C#) ------------------------------------------------
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS api
 WORKDIR /src
-COPY src/WebBase.Api/WebBase.Api.csproj src/WebBase.Api/
-RUN dotnet restore src/WebBase.Api/WebBase.Api.csproj
+COPY Directory.Build.props ./
+# The app, and the modules: only the ones WebBase.Api references are compiled
+# into it (docs/MODULES.md).
 COPY src/ src/
-RUN dotnet publish src/WebBase.Api/WebBase.Api.csproj -c Release -o /app --no-restore
+COPY modules/ modules/
+# Downloaded packages are kept between builds on this machine.
+RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
+    dotnet publish src/WebBase.Api/WebBase.Api.csproj -c Release -o /app
 
 # ---- 3. What actually runs --------------------------------------------------
 FROM mcr.microsoft.com/dotnet/aspnet:10.0

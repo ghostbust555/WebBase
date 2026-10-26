@@ -6,7 +6,7 @@ namespace WebBase.Api.Content;
 
 /// <summary>
 /// The optional CMS: a tree of markdown files, where the folder layout is the
-/// website's addresses. The files can be anywhere an IContentStore reaches: a
+/// website's addresses. The files can be anywhere an IFileStore reaches: a
 /// folder (the default), an S3 bucket, an Azure Blob container.
 ///
 ///   index.md              →  /
@@ -33,7 +33,7 @@ namespace WebBase.Api.Content;
 /// whole tree is kept in memory and checked for changes every
 /// Cms:RefreshSeconds. Only files whose size or date changed are read again.
 /// </summary>
-public class ContentService(IContentStore store, IOptions<CmsOptions> cms, IOptions<AppOptions> app,
+public class ContentService(IFileStore store, IOptions<CmsOptions> cms, IOptions<AppOptions> app,
     ILogger<ContentService> log, TimeProvider time)
 {
     public const string ThemeFile = "theme.css";
@@ -51,7 +51,7 @@ public class ContentService(IContentStore store, IOptions<CmsOptions> cms, IOpti
 
     private sealed record Snapshot(
         DateTimeOffset TakenAt,
-        Dictionary<string, ContentEntry> Files,
+        Dictionary<string, FileEntry> Files,
         HashSet<string> Folders,
         Dictionary<string, Parsed> Markdown,
         string Theme);
@@ -59,7 +59,7 @@ public class ContentService(IContentStore store, IOptions<CmsOptions> cms, IOpti
     private Snapshot? _snapshot;
     private readonly SemaphoreSlim _refresh = new(1, 1);
     // What each text file said last time, so an unchanged file isn't read again.
-    private readonly ConcurrentDictionary<string, (ContentEntry Entry, string Text)> _texts = new();
+    private readonly ConcurrentDictionary<string, (FileEntry Entry, string Text)> _texts = new();
 
     private async Task<Snapshot> CurrentAsync(CancellationToken ct)
     {
@@ -72,7 +72,7 @@ public class ContentService(IContentStore store, IOptions<CmsOptions> cms, IOpti
             if (_snapshot != null && IsFresh(_snapshot)) return _snapshot;
             return _snapshot = await TakeAsync(ct);
         }
-        catch (ContentUnavailableException e) when (_snapshot != null)
+        catch (FileStoreUnavailableException e) when (_snapshot != null)
         {
             // Keep serving what we had; try again next time round.
             log.LogWarning("CMS content can't be refreshed, still serving the last copy: {Error}", e.Message);
@@ -99,7 +99,7 @@ public class ContentService(IContentStore store, IOptions<CmsOptions> cms, IOpti
 
         var pages = files.Values.Where(e => IsPageFile(e.Path)).ToList();
         var texts = new ConcurrentDictionary<string, string>();
-        await Parallel.ForEachAsync(pages.Append(files.GetValueOrDefault(ThemeFile)).OfType<ContentEntry>(),
+        await Parallel.ForEachAsync(pages.Append(files.GetValueOrDefault(ThemeFile)).OfType<FileEntry>(),
             new ParallelOptions { MaxDegreeOfParallelism = 8, CancellationToken = ct },
             async (entry, token) => texts[entry.Path] = await ReadTextAsync(entry, token));
 
@@ -110,7 +110,7 @@ public class ContentService(IContentStore store, IOptions<CmsOptions> cms, IOpti
             texts.TryGetValue(ThemeFile, out var theme) ? ThemeCss.Build(theme) : "");
     }
 
-    private async Task<string> ReadTextAsync(ContentEntry entry, CancellationToken ct)
+    private async Task<string> ReadTextAsync(FileEntry entry, CancellationToken ct)
     {
         if (_texts.TryGetValue(entry.Path, out var known) && known.Entry == entry) return known.Text;
         await using var stream = await store.OpenAsync(entry.Path, ct);
@@ -173,13 +173,13 @@ public class ContentService(IContentStore store, IOptions<CmsOptions> cms, IOpti
         Enabled ? (await CurrentAsync(ct)).Theme : "";
 
     /// <summary>A file to hand out under /content/, or null if there's no such public file.</summary>
-    public async Task<ContentEntry?> FindFileAsync(string path, CancellationToken ct = default)
+    public async Task<FileEntry?> FindFileAsync(string path, CancellationToken ct = default)
     {
         if (!ContentPaths.IsPublicFile(path)) return null;
         return (await CurrentAsync(ct)).Files.GetValueOrDefault(path);
     }
 
-    public Task<Stream?> OpenAsync(ContentEntry file, CancellationToken ct = default) => store.OpenAsync(file.Path, ct);
+    public Task<Stream?> OpenAsync(FileEntry file, CancellationToken ct = default) => store.OpenAsync(file.Path, ct);
 
     private void Walk(Snapshot s, string folder, List<ContentSummary> into)
     {

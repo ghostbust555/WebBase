@@ -30,7 +30,7 @@ say "Renaming ${OLD} -> ${NEW} (and ${OLD_SLUG} -> ${NEW_SLUG})"
 # Every text file we own: not git's internals, dependencies or build output.
 files() {
   find . \( -name .git -o -name node_modules -o -name bin -o -name obj -o -name dist -o -name .docker-data \) -prune -o \
-    -type f \( -name '*.cs' -o -name '*.csproj' -o -name '*.sln' -o -name '*.json' -o -name '*.md' -o -name '*.sh' \
+    -type f \( -name '*.cs' -o -name '*.csproj' -o -name '*.sln' -o -name '*.slnx' -o -name '*.props' -o -name '*.json' -o -name '*.md' -o -name '*.sh' \
     -o -name '*.yaml' -o -name '*.yml' -o -name '*.ts' -o -name '*.vue' -o -name '*.html' -o -name '*.css' \
     -o -name 'Dockerfile' -o -name '.env.example' -o -name '*.http' -o -name '*.svg' \) -print
 }
@@ -49,7 +49,7 @@ find . \( -name .git -o -name node_modules -o -name .docker-data \) -prune -o -n
     done
 
 # Build output from the old name would only confuse the next build.
-find src tests -type d \( -name bin -o -name obj \) -prune -exec rm -rf {} + 2>/dev/null || true
+rm -rf .build 2>/dev/null || true
 
 ok "Renamed to ${NEW}."
 echo "    Images will be called ${NEW_SLUG}-app, databases ${NEW_SLUG}."

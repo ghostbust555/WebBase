@@ -40,34 +40,40 @@ managed database.
  Controllers, AuthService                  only know the interfaces
         │
         ▼
- Data/IUserStore.cs  Data/INoteStore.cs  Data/IDatabase.cs      the contract
+ src/WebBase.Core/Data/                    the contract: IUserStore, INoteStore, IDatabase
         │
-        ▼  chosen by Database__Provider (Data/DatabaseRegistration.cs)
- Data/Postgres/                            one implementation: EF Core + PostgreSQL
+        ▼  chosen by Database__Provider (src/WebBase.Api/Modules.cs)
+ modules/WebBase.Database.Postgres/        one implementation: EF Core + PostgreSQL
    AppDbContext.cs, PostgresUserStore.cs, PostgresNoteStore.cs,
    PostgresDatabase.cs (migrations, health), Migrations/
 ```
 
 | File | What it is |
 |---|---|
-| `Models/*.cs` | The records (`User`, `Note`): plain C# classes, with no database code |
-| `Data/IUserStore.cs`, `Data/INoteStore.cs` | What the app can ask for: "find a user by email", "list this user's notes"... |
-| `Data/IDatabase.cs` | Getting the database ready at startup, and "can I reach it?" for `/api/health`. Also `DuplicateKeyException` |
-| `Data/DatabaseRegistration.cs` | Reads `Database__Provider` and registers the matching implementation |
-| `Data/Postgres/` | The PostgreSQL implementation, and the only code that uses Entity Framework |
+| `src/WebBase.Core/Models/*.cs` | The records (`User`, `Note`): plain C# classes, with no database code |
+| `src/WebBase.Core/Data/IUserStore.cs`, `INoteStore.cs` | What the app can ask for: "find a user by email", "list this user's notes"... |
+| `src/WebBase.Core/Data/IDatabase.cs` | Getting the database ready at startup, and "can I reach it?" for `/api/health`. Also `DuplicateKeyException` |
+| `src/WebBase.Api/Modules.cs` | The database modules the app is built with; reads `Database__Provider` and registers the matching one |
+| `modules/WebBase.Database.Postgres/` | The PostgreSQL implementation, and the only code that uses Entity Framework |
+
+Each implementation is a **module**: its own project, with its own packages
+([MODULES.md](MODULES.md)). The app only carries the ones listed in `Modules.cs`.
 
 Two things keep this honest:
 
-- **Entity Framework is only visible in `Data/Postgres/`.** It isn't a global
-  `using`, and a test (`tests/WebBase.Tests/StoreContract/ArchitectureTests.cs`)
-  fails if anything outside `Data/` asks for a database-specific type.
+- **Entity Framework is only visible in the Postgres module.** The app doesn't
+  reference it at all, and a test (`tests/WebBase.Tests/ArchitectureTests.cs`)
+  fails if the app gains a reference to EF, Npgsql or a cloud SDK, or a
+  constructor asks for a module's own type.
 - **The contract is tested, not just written down.** Every implementation
   runs the same tests (next section). `./scripts/test.sh` runs them against a
-  real PostgreSQL that it starts for the purpose.
+  real PostgreSQL that it starts for the purpose. The API's own tests use an
+  in-memory implementation (`tests/WebBase.Testing/InMemory/`) that passes the
+  same contract.
 
 ## The contract every database must keep
 
-`tests/WebBase.Tests/StoreContract/StoreContractTests.cs` spells it out as
+`tests/WebBase.Testing/StoreContractTests.cs` spells it out as
 tests. In short:
 
 - **Reads return copies.** Changing an object you were given saves nothing
@@ -83,23 +89,23 @@ tests. In short:
 - **`PrepareAsync`** creates or upgrades whatever the database needs (tables,
   containers, indexes), and is safe to run on every startup.
 
-**Adding a feature** means adding a store for it: an interface in `Data/`,
-its implementation in `Data/Postgres/`, and contract tests for it.
+**Adding a feature** means adding a store for it: an interface in
+`src/WebBase.Core/Data/`, its implementation in the Postgres module (and the
+in-memory one used by tests), and contract tests for it.
 [DEVELOPING.md](DEVELOPING.md#adding-a-feature-step-by-step) walks through it.
 
 ## Switching to another database
 
-`examples/cosmos-db/` holds a **complete, tested Azure Cosmos DB
+`modules/WebBase.Database.CosmosDB/` is a **complete, tested Azure Cosmos DB
 implementation**. It passes every contract test against the Cosmos DB
-emulator, and the whole app (sign-up, sign-in, notes) runs on it. It isn't
-compiled into the app until you copy it in, so projects that don't need it
-don't carry it. Its README (`examples/cosmos-db/README.md`) has the steps:
+emulator, and the whole app (sign-up, sign-in, notes) runs on it. The app
+isn't built with it unless you ask, so projects that don't need it don't
+carry the Cosmos package. Its README has the details:
 
-1. Copy `examples/cosmos-db/Data/Cosmos/` into `src/WebBase.Api/Data/`, and
-   the test file into `tests/WebBase.Tests/StoreContract/`.
-2. Add the Cosmos package, and one `case "cosmos":` line to `Data/DatabaseRegistration.cs`.
-3. Set `Database__Provider=cosmos` and `Cosmos__ConnectionString=...`.
-4. Run the contract tests against it.
+1. `./scripts/module.sh add cosmos` (and `remove postgres`, if you like), and commit.
+2. Set `Database__Provider=cosmos` and `Cosmos__ConnectionString=...`.
+3. Run its contract tests against the Cosmos DB emulator (the module's README
+   has the commands). `./scripts/test.sh` skips them, as it has no emulator.
 
 Nothing else changes: not the controllers, not `AuthService`, not the website.
 
@@ -107,12 +113,12 @@ The same recipe works for any other database:
 
 | Database | How much work |
 |---|---|
-| **SQL Server, MySQL, SQLite** | Small. Copy `Data/Postgres/` to `Data/SqlServer/` (say), swap `UseNpgsql` for `UseSqlServer`, change the duplicate-key error check in `AppDbContext.SaveAsync` to that database's error, and make a fresh `Initial` migration. Entity Framework does the rest |
-| **Cosmos DB, MongoDB, DynamoDB** (document databases) | Moderate, like the Cosmos example: there are no tables or joins, so each store decides how records are laid out and how uniqueness is kept |
+| **SQL Server, MySQL, SQLite** | Small. Copy `modules/WebBase.Database.Postgres/` to `WebBase.Database.SqlServer/` (say, [MODULES.md](MODULES.md#writing-a-new-one)), swap `UseNpgsql` for `UseSqlServer`, change the duplicate-key error check in `AppDbContext.SaveAsync` to that database's error, and make a fresh `Initial` migration. Entity Framework does the rest |
+| **Cosmos DB, MongoDB, DynamoDB** (document databases) | Moderate, like the Cosmos module: there are no tables or joins, so each store decides how records are laid out and how uniqueness is kept |
 
 Things to know before you switch:
 
-- **Migrations are PostgreSQL's.** `./scripts/ef.sh` and `Data/Postgres/Migrations`
+- **Migrations are PostgreSQL's.** `./scripts/ef.sh` and `modules/WebBase.Database.Postgres/Migrations`
   belong to the Postgres implementation. A document database has no schema to
   migrate: `PrepareAsync` creates its containers, and a field added to a model
   simply arrives as its default value on older documents.

@@ -8,7 +8,7 @@ grow into whatever you're building.
 |---|---|
 | **Website** | [Vue 3](https://vuejs.org) + TypeScript, built with [Vite](https://vite.dev) - `client/`. The API's types are generated from the C#, so the two can't drift apart |
 | **API** | C# / [ASP.NET Core 10](https://learn.microsoft.com/aspnet/core) - `src/WebBase.Api/` |
-| **Database** | [PostgreSQL 18](https://www.postgresql.org), via Entity Framework Core, behind swappable stores (a Cosmos DB version is in `examples/cosmos-db/`). Managed Postgres recommended for production |
+| **Database** | [PostgreSQL 18](https://www.postgresql.org), via Entity Framework Core, behind swappable stores (a Cosmos DB module is included, used only if you add it). Managed Postgres recommended for production |
 | **Sign-in** | Email + password built in; "Sign in with Google" switched on by one setting |
 | **Content** | Optional CMS: markdown files become pages, and a `theme.css` sets the colours. Kept in `content/`, an S3 bucket or Azure Blob Storage; off until switched on |
 | **Running it** | [Docker](https://www.docker.com) for everything - development and production |
@@ -47,7 +47,9 @@ Never used a terminal, or don't have Docker yet? Start with
 | Put production on your domain | `./tunnel.sh on` |
 | Back up the production database | `./scripts/backup.sh` |
 | Check a running site actually works | `./scripts/smoke.sh <address>` |
-| Deploy to a cloud instead | `./scripts/cloud/azure.sh` / `aws.sh` / `gcp.sh` - see [docs/CLOUD.md](docs/CLOUD.md) |
+| Deploy to Google Cloud Run, free, from GitHub on every push | [docs/GOOGLE_CLOUD.md](docs/GOOGLE_CLOUD.md): a browser is all you need |
+| Deploy to another cloud | `./scripts/cloud/azure.sh` / `aws.sh` / `gcp.sh` - see [docs/CLOUD.md](docs/CLOUD.md) |
+| Use Cosmos DB, or S3 / Azure / Google storage for the CMS | `./scripts/module.sh add <name>` - see [docs/MODULES.md](docs/MODULES.md) |
 
 ## The guides
 
@@ -55,13 +57,15 @@ Never used a terminal, or don't have Docker yet? Start with
 2. **[How it fits together](docs/HOW_IT_FITS_TOGETHER.md)** - what each piece does and how a click becomes a database row.
 3. **[Developing](docs/DEVELOPING.md)** - making changes, adding a feature (with a worked example), tests.
 4. **[The database](docs/DATABASE.md)** - where your data should live, and switching to another database (e.g. Cosmos DB).
-5. **[Deploying on your own computer](docs/DEPLOYING.md)** - production, releases, rollback, backups.
-6. **[Your own domain with Cloudflare Tunnel](docs/CLOUDFLARE_TUNNEL.md)** - public, with no router changes.
-7. **[Deploying to a cloud](docs/CLOUD.md)** - Azure, AWS, Google Cloud, Fly.io, Render, Railway, a VPS.
-8. **[Google sign-in](docs/GOOGLE_SIGNIN.md)** - optional.
-9. **[The CMS](docs/CMS.md)** - optional: pages written as markdown files, in the repository or a bucket.
-10. **[Settings reference](docs/CONFIGURATION.md)** - every setting and secret.
-11. **[Troubleshooting](docs/TROUBLESHOOTING.md)** - when something doesn't work.
+5. **[Modules](docs/MODULES.md)** - databases and cloud storage as separate projects, added only when you need them.
+6. **[Deploying on your own computer](docs/DEPLOYING.md)** - production, releases, rollback, backups.
+7. **[Your own domain with Cloudflare Tunnel](docs/CLOUDFLARE_TUNNEL.md)** - public, with no router changes.
+8. **[Google Cloud Run, for free](docs/GOOGLE_CLOUD.md)** - deployed from GitHub on every push; set up from a browser.
+9. **[Deploying to a cloud](docs/CLOUD.md)** - Azure, AWS, Google Cloud, Fly.io, Render, Railway, a VPS.
+10. **[Google sign-in](docs/GOOGLE_SIGNIN.md)** - optional.
+11. **[The CMS](docs/CMS.md)** - optional: pages written as markdown files, in the repository or a bucket.
+12. **[Settings reference](docs/CONFIGURATION.md)** - every setting and secret.
+13. **[Troubleshooting](docs/TROUBLESHOOTING.md)** - when something doesn't work.
 
 ## Starting your next project from this one
 
@@ -85,15 +89,19 @@ Each new site gets its own copy:
 ```
 client/              the website (Vue). Pages are in client/src/views/
 src/WebBase.Api/     the API (C#). Endpoints are in Controllers/
-tests/WebBase.Tests/ automated tests for the API
+src/WebBase.Core/    the records (Models/) and the interfaces the API and modules share
+modules/             databases and cloud storage, one project each; the app uses only those
+                     listed in src/WebBase.Api/Modules.cs (docs/MODULES.md)
+tests/               automated tests: WebBase.Tests for the API, one project per module
 ops/                 the production Dockerfile and database setup
-examples/            optional pieces to copy in, e.g. a Cosmos DB database
 content/             pages for the optional CMS (markdown files, theme.css)
 docs/                the guides above (also shown in the site at /docs)
 scripts/             helpers: tests, migrations, backups, cloud deploys
 compose.dev.yaml     what ./dev.sh runs
 compose.prod.yaml    what ./deploy.sh and ./tunnel.sh run (+ compose.prod-db.yaml: its database container)
 .env.example         every setting, explained; ./setup.sh copies it to .env.local
+cloud.env            public settings for cloud deploys (committed; no secrets)
+.github/workflows/   tests on every push; the Google Cloud deploy once it's set up
 setup.sh dev.sh deploy.sh tunnel.sh   the four commands you'll use most
 CLAUDE.md            notes for AI coding assistants working in this repository
 ```

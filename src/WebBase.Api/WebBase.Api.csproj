@@ -1,27 +1,27 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>WebBase.Api</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- The CMS's optional content stores (Content/): S3 and Azure Blob. -->
-    <PackageReference Include="AWSSDK.S3" Version="4.0.104.4" />
-    <PackageReference Include="Azure.Storage.Blobs" Version="12.30.0" />
     <PackageReference Include="Google.Apis.Auth" Version="1.77.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.14" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.14">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <!-- Pinned so every EF package (Npgsql's, Design's, the tests' InMemory) agrees on one version. -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.14" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.18.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WebBase.Core\WebBase.Core.csproj" />
+  </ItemGroup>
+
+  <!--
+    MODULES: the optional pieces this app is built with (docs/MODULES.md).
+    Adding one is a reference here plus a line in Modules.cs; removing one,
+    the reverse. ./scripts/module.sh does both.
+  -->
+  <ItemGroup Label="Modules">
+    <ProjectReference Include="..\..\modules\WebBase.Database.Postgres\WebBase.Database.Postgres.csproj" />
   </ItemGroup>
 
 </Project>

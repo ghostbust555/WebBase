@@ -48,7 +48,8 @@ services:
       # The optional CMS, reading content/ live: edit a page, reload the browser.
       Cms__Enabled: ${CMS_ENABLED:-false}
       Cms__ContentPath: /src/content
-      # Where its content is: files (content/, the default), s3 or azure.
+      # Where its content is: files (content/, the default), or a file storage
+      # module the app is built with: s3, azure, gcs (docs/MODULES.md).
       Cms__Source: ${CMS_SOURCE:-files}
       Cms__S3__Bucket: ${CMS_S3_BUCKET:-}
       Cms__S3__Prefix: ${CMS_S3_PREFIX:-}
@@ -60,6 +61,8 @@ services:
       Cms__Azure__Container: ${CMS_AZURE_CONTAINER:-}
       Cms__Azure__ContainerUrl: ${CMS_AZURE_CONTAINER_URL:-}
       Cms__Azure__Prefix: ${CMS_AZURE_PREFIX:-}
+      Cms__Gcs__Bucket: ${CMS_GCS_BUCKET:-}
+      Cms__Gcs__Prefix: ${CMS_GCS_PREFIX:-}
       Cms__RefreshSeconds: "0"   # see an edited page on the next reload
       # Rewrite client/src/api-types.ts whenever the C# types change.
       Dev__TypeScriptOutput: /src/client/src/api-types.ts
@@ -70,10 +73,10 @@ services:
       DOTNET_NOLOGO: "1"
     volumes:
       - .:/src
-      # The container's own build output, kept apart from any build you do
-      # on your computer so the two never trip over each other.
-      - api-obj:/src/src/WebBase.Api/obj
-      - api-bin:/src/src/WebBase.Api/bin
+      # The container's own build output (.build/, for every project), kept
+      # apart from any build you do on your computer so the two never trip
+      # over each other.
+      - build:/src/.build
       - nuget:/root/.nuget/packages
     ports:
       - "127.0.0.1:${DEV_API_PORT:-5000}:8080"
@@ -104,7 +107,6 @@ services:
     restart: unless-stopped
 
 volumes:
-  api-obj:
-  api-bin:
+  build:
   nuget:
   web-node-modules:

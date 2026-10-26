@@ -59,7 +59,11 @@ public class CmsOptions
     /// <summary>Off by default: no content endpoints, no /content files, no CMS pages.</summary>
     public bool Enabled { get; set; }
 
-    /// <summary>Where the content is: "files" (a folder, the default), "s3" or "azure".</summary>
+    /// <summary>
+    /// Where the content is: "files" (a folder, the default), or the name of a
+    /// file storage module the app is built with ("s3", "azure", "gcs"), whose
+    /// settings are then the section of that name: Cms:S3, Cms:Azure, Cms:Gcs.
+    /// </summary>
     public string Source { get; set; } = "files";
 
     /// <summary>
@@ -75,33 +79,6 @@ public class CmsOptions
     /// come from memory. 0 = every request (development does this).
     /// </summary>
     public int RefreshSeconds { get; set; } = 60;
-
-    public CmsS3Options S3 { get; set; } = new();
-    public CmsAzureOptions Azure { get; set; } = new();
-}
-
-/// <summary>Source "s3": see Content/S3ContentStore.cs.</summary>
-public class CmsS3Options
-{
-    public string Bucket { get; set; } = "";
-    /// <summary>A folder in the bucket, e.g. "site/". Empty = the whole bucket.</summary>
-    public string Prefix { get; set; } = "";
-    public string Region { get; set; } = "";
-    /// <summary>For S3-compatible services (R2, Spaces, B2, MinIO): their endpoint URL.</summary>
-    public string ServiceUrl { get; set; } = "";
-    /// <summary>Optional; without them the standard AWS credential chain is used.</summary>
-    public string AccessKey { get; set; } = "";
-    public string SecretKey { get; set; } = "";
-}
-
-/// <summary>Source "azure": see Content/AzureBlobContentStore.cs.</summary>
-public class CmsAzureOptions
-{
-    public string ConnectionString { get; set; } = "";
-    public string Container { get; set; } = "";
-    /// <summary>Instead of a connection string: https://account.blob.core.windows.net/container[?sas].</summary>
-    public string ContainerUrl { get; set; } = "";
-    public string Prefix { get; set; } = "";
 }
 
 /// <summary>

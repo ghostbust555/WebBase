@@ -32,14 +32,24 @@ explained.
 | `PROD_DATABASE_URL` | prod | A managed database for prod, instead of the container. Empty = container ([DEPLOYING.md](DEPLOYING.md#a-managed-database)) |
 | `GOOGLE_CLIENT_ID` | dev, prod, cloud | Turns on Google sign-in ([GOOGLE_SIGNIN.md](GOOGLE_SIGNIN.md)) |
 | `CMS_ENABLED` | dev, prod, cloud | `true` turns on the CMS ([CMS.md](CMS.md)) |
-| `CMS_SOURCE` | dev, prod, cloud | Where its files are: `files` (`content/`, the default), `s3` or `azure` ([CMS.md](CMS.md#where-the-content-lives)) |
-| `CMS_S3_*`, `CMS_AZURE_*` | dev, prod, cloud | The bucket or container, for `s3` / `azure`. The keys and connection string among them are secrets, and the cloud scripts don't copy them ([CMS.md](CMS.md#in-a-cloud)) |
+| `CMS_SOURCE` | dev, prod, cloud | Where its files are: `files` (`content/`, the default), `s3`, `azure` or `gcs`, each a module to add first ([CMS.md](CMS.md#where-the-content-lives)) |
+| `CMS_S3_*`, `CMS_AZURE_*`, `CMS_GCS_*` | dev, prod, cloud | The bucket or container, for `s3` / `azure` / `gcs`. The keys and connection string among them are secrets, and the cloud scripts don't copy them ([CMS.md](CMS.md#in-a-cloud)) |
 | `CLOUDFLARE_TUNNEL_TOKEN` | `./tunnel.sh` | The tunnel to your domain ([CLOUDFLARE_TUNNEL.md](CLOUDFLARE_TUNNEL.md)) |
 | `DEV_WEB_PORT` | dev | Website port, default 5173 |
 | `DEV_API_PORT` | dev | API port (for tools; the browser doesn't need it), default 5000 |
 | `DEV_DB_PORT` | dev | Database port, default 5432 |
 | `PROD_PORT` | prod | Production's port on this computer, default 8080 |
 | `AZURE_*`, `AWS_*`, `GCP_*` | cloud scripts | See [CLOUD.md](CLOUD.md). Some are written here by the scripts themselves |
+
+### cloud.env: settings for the cloud, committed
+
+`cloud.env` holds the same **public** settings (`APP_NAME`, `GOOGLE_CLIENT_ID`,
+`CMS_*`) for cloud deploys, and is committed. That's what lets a deploy from
+GitHub Actions, or a change made from Claude Code on the web, set them: edit
+it, push, and the next deploy applies it ([GOOGLE_CLOUD.md](GOOGLE_CLOUD.md#changing-settings)).
+A value in the environment or in `.env.local` wins over it. The cloud scripts
+refuse to run if anything in it looks like a secret (a name with `KEY`,
+`SECRET`, `PASSWORD`, `TOKEN`, `CONNECTION_STRING` or `DATABASE_URL`, with a value).
 
 Running two projects made from this template on one computer? Give the
 second one different ports, for example `DEV_WEB_PORT=5174`,
@@ -58,15 +68,16 @@ second one different ports, for example `DEV_WEB_PORT=5174`,
 | `DATABASE_URL` | | `postgres://user:pass@host:port/db?sslmode=require`. Takes priority over the next one. Locally, `PROD_DATABASE_URL` in `.env.local` sets it for prod |
 | `ConnectionStrings__Default` | local dev database | .NET-style connection string for requests |
 | `ConnectionStrings__Migration` | | If set, migrations run on this connection (the owner role in prod) |
-| `Database__Provider` | postgres | Which database implementation to use ([DATABASE.md](DATABASE.md)). Only `postgres` is built in; `cosmos` once you add `examples/cosmos-db` |
+| `Database__Provider` | postgres | Which database implementation to use ([DATABASE.md](DATABASE.md)). `postgres` by default; `cosmos` once the app is built with that module ([MODULES.md](MODULES.md)) |
 | `Database__MigrateOnStartup` | true | Get the database ready when the app starts (Postgres: apply new migrations) |
 | `Auth__Google__ClientId` | | Google sign-in; empty = off |
 | `Cms__Enabled` | false | The CMS ([CMS.md](CMS.md)) |
-| `Cms__Source` | files | `files`, `s3` or `azure` |
+| `Cms__Source` | files | `files`, or a file storage module the app is built with: `s3`, `azure`, `gcs` |
 | `Cms__ContentPath` | `../../content` | For `files`: the folder. Docker sets this (`/src/content` in dev, `/app/content` in the image) |
 | `Cms__RefreshSeconds` | 60 | How often to look for changed content; 0 = every request (development) |
 | `Cms__S3__Bucket`, `__Prefix`, `__Region`, `__ServiceUrl`, `__AccessKey`, `__SecretKey` | | For `s3`. `ServiceUrl` for S3-compatible services; without keys, the standard AWS credentials ([CMS.md](CMS.md#s3-and-s3-compatible-storage)) |
 | `Cms__Azure__ContainerUrl`, or `__ConnectionString` + `__Container`; `__Prefix` | | For `azure`. A URL without a SAS token signs in with the app's identity ([CMS.md](CMS.md#azure-blob-storage)) |
+| `Cms__Gcs__Bucket`, `__Prefix` | | For `gcs`. Signs in as the app's own service account ([CMS.md](CMS.md#google-cloud-storage)) |
 | `RateLimits__AuthPerMinute` | 10 | Sign-in/sign-up attempts allowed per visitor per minute |
 | `PORT` | | If set (by a cloud host), listen on this port instead of 8080 |
 

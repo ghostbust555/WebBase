@@ -40,8 +40,8 @@ public sealed class ContentTests : IDisposable
         File.WriteAllText(path, text);
     }
 
-    private ContentService Service(bool development = false, IContentStore? store = null) => new(
-        store ?? new FileContentStore(_root),
+    private ContentService Service(bool development = false, IFileStore? store = null) => new(
+        store ?? new LocalFileStore(_root),
         Options.Create(new CmsOptions { Enabled = true, RefreshSeconds = 0 }),
         Options.Create(new AppOptions { Environment = development ? "development" : "prod" }),
         NullLogger<ContentService>.Instance, TimeProvider.System);
@@ -109,7 +109,7 @@ public sealed class ContentTests : IDisposable
     public async Task Edits_show_up_once_the_refresh_time_has_passed()
     {
         var clock = new ManualClock();
-        var service = new ContentService(new FileContentStore(_root),
+        var service = new ContentService(new LocalFileStore(_root),
             Options.Create(new CmsOptions { Enabled = true, RefreshSeconds = 60 }),
             Options.Create(new AppOptions()), NullLogger<ContentService>.Instance, clock);
         Assert.Equal("About us", (await service.GetPageAsync("about"))!.Title);
@@ -124,13 +124,13 @@ public sealed class ContentTests : IDisposable
     [Fact]
     public async Task An_unreachable_store_keeps_the_last_copy_and_otherwise_says_so()
     {
-        var store = new FlakyStore(new FileContentStore(_root));
+        var store = new FlakyStore(new LocalFileStore(_root));
         var service = Service(store: store);
         Assert.NotNull(await service.GetPageAsync("about"));
 
         store.Down = true;
         Assert.NotNull(await service.GetPageAsync("about")); // the last good copy
-        await Assert.ThrowsAsync<ContentUnavailableException>(() => Service(store: store).GetPageAsync("about"));
+        await Assert.ThrowsAsync<FileStoreUnavailableException>(() => Service(store: store).GetPageAsync("about"));
     }
 
     [Fact]
@@ -209,21 +209,21 @@ public sealed class ContentTests : IDisposable
         using var app = new TestApp().WithWebHostBuilder(b =>
         {
             b.UseSetting("Cms:Enabled", "true");
-            b.ConfigureServices(s => s.AddSingleton<IContentStore>(new FlakyStore(new FileContentStore(_root)) { Down = true }));
+            b.ConfigureServices(s => s.AddSingleton<IFileStore>(new FlakyStore(new LocalFileStore(_root)) { Down = true }));
         });
         var client = app.CreateClient();
         Assert.Equal(HttpStatusCode.ServiceUnavailable, (await client.GetAsync("/api/content/page?path=about")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/content/theme.css")).StatusCode);
     }
 
-    private sealed class FlakyStore(IContentStore inner) : IContentStore
+    private sealed class FlakyStore(IFileStore inner) : IFileStore
     {
         public bool Down { get; set; }
         public string Description => "flaky";
-        public Task<IReadOnlyList<ContentEntry>> ListAsync(CancellationToken ct = default) =>
-            Down ? throw new ContentUnavailableException("down") : inner.ListAsync(ct);
+        public Task<IReadOnlyList<FileEntry>> ListAsync(CancellationToken ct = default) =>
+            Down ? throw new FileStoreUnavailableException("down") : inner.ListAsync(ct);
         public Task<Stream?> OpenAsync(string path, CancellationToken ct = default) =>
-            Down ? throw new ContentUnavailableException("down") : inner.OpenAsync(path, ct);
+            Down ? throw new FileStoreUnavailableException("down") : inner.OpenAsync(path, ct);
     }
 
     private sealed class ManualClock : TimeProvider

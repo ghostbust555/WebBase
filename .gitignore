@@ -8,7 +8,8 @@
 .docker-data/
 backups/
 
-# .NET
+# .NET (build output goes to .build/: Directory.Build.props)
+.build/
 bin/
 obj/
 *.user

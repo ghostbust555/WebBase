@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
+using WebBase.Api;
 using WebBase.Api.Content;
 using WebBase.Api.Infrastructure;
 using WebBase.Api.Services;

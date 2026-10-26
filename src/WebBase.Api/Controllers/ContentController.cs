@@ -44,7 +44,7 @@ public class ContentController(ContentService content) : ControllerBase
     {
         string css;
         try { css = await content.ThemeAsync(ct); }
-        catch (ContentUnavailableException) { css = ""; } // the site's own colours, rather than a broken page
+        catch (FileStoreUnavailableException) { css = ""; } // the site's own colours, rather than a broken page
 
         var etag = new EntityTagHeaderValue($"\"{Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(css)))[..16]}\"");
         Response.Headers.CacheControl = "no-cache"; // always ask, so an edit shows on the next load
@@ -85,7 +85,7 @@ public class ContentUnavailableAttribute : ExceptionFilterAttribute
 {
     public override void OnException(ExceptionContext context)
     {
-        if (context.Exception is not ContentUnavailableException) return;
+        if (context.Exception is not FileStoreUnavailableException) return;
         context.HttpContext.RequestServices.GetRequiredService<ILogger<ContentController>>()
             .LogError(context.Exception, "CMS content unavailable");
         context.Result = new ObjectResult(new ErrorResponse("The site's content can't be reached right now. Try again in a minute."))

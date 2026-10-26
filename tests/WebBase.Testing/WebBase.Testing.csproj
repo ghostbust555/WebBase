@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Shared by the test projects, never by the app: the contract suites every
+    database and file storage module runs (StoreContractTests,
+    FileStoreContractTests), and an in-memory database for the API tests.
+  -->
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\..\src\WebBase.Core\WebBase.Core.csproj" />
+    <!-- [Fact] and Assert, for a library of tests rather than a test program. -->
+    <PackageReference Include="xunit.v3.extensibility.core" Version="3.2.2" />
+    <PackageReference Include="xunit.v3.assert" Version="3.2.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>

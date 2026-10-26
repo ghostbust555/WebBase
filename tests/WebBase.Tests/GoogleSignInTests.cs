@@ -1,21 +1,19 @@
-using Microsoft.EntityFrameworkCore;
-using WebBase.Api.Data.Postgres;
 using WebBase.Api.Services;
+using WebBase.Testing.InMemory;
 
 namespace WebBase.Tests;
 
 /// <summary>The rules for matching a Google sign-in to an account (AuthService), with no Google involved.</summary>
 public class GoogleSignInTests
 {
-    private static AppDbContext NewDb() =>
-        new(new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+    private static InMemoryData NewDb() => new();
 
-    private static AuthService Auth(AppDbContext db) => new(new PostgresUserStore(db));
+    private static AuthService Auth(InMemoryData db) => new(new InMemoryUserStore(db));
 
     [Fact]
     public async Task A_new_google_account_makes_a_passwordless_user()
     {
-        await using var db = NewDb();
+        var db = NewDb();
         var result = await Auth(db).SignInWithGoogleAsync(new("sub-1", "New@Example.com", true, "New Person"));
 
         Assert.NotNull(result.User);
@@ -27,7 +25,7 @@ public class GoogleSignInTests
     [Fact]
     public async Task A_verified_email_links_to_the_existing_account_and_keeps_its_password()
     {
-        await using var db = NewDb();
+        var db = NewDb();
         var auth = Auth(db);
         var original = (await auth.RegisterAsync("me@example.com", "my password", "Me")).User!;
 
@@ -40,7 +38,7 @@ public class GoogleSignInTests
     [Fact]
     public async Task An_unverified_email_is_never_matched_to_an_existing_account()
     {
-        await using var db = NewDb();
+        var db = NewDb();
         var auth = Auth(db);
         await auth.RegisterAsync("victim@example.com", "their password", null);
 
@@ -52,7 +50,7 @@ public class GoogleSignInTests
     [Fact]
     public async Task The_google_account_wins_even_if_its_email_changed()
     {
-        await using var db = NewDb();
+        var db = NewDb();
         var auth = Auth(db);
         var first = (await auth.SignInWithGoogleAsync(new("sub-3", "old@example.com", true, null))).User!;
 

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- An optional database module: Azure Cosmos DB for NoSQL. Not part of the
+       app until referenced from WebBase.Api; README.md has the steps. -->
+
+  <PropertyGroup>
+    <!-- Cosmos asks for Newtonsoft.Json; this uses its System.Text.Json option instead. -->
+    <AzureCosmosDisableNewtonsoftJsonCheck>true</AzureCosmosDisableNewtonsoftJsonCheck>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\..\src\WebBase.Core\WebBase.Core.csproj" />
+    <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.54.0" />
+  </ItemGroup>
+
+</Project>

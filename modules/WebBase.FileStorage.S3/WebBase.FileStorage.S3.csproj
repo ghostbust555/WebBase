@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- An optional file storage module: Amazon S3, or any S3-compatible storage (Cloudflare R2, DigitalOcean Spaces, Backblaze B2, MinIO).
+       Not part of the app until referenced from WebBase.Api; README.md has the steps. -->
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\..\src\WebBase.Core\WebBase.Core.csproj" />
+    <PackageReference Include="AWSSDK.S3" Version="4.0.104.4" />
+  </ItemGroup>
+
+</Project>

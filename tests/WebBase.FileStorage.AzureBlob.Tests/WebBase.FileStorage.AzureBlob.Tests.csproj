@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The contract tests against WebBase.FileStorage.AzureBlob. Common settings: ../Directory.Build.props. -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\modules\WebBase.FileStorage.AzureBlob\WebBase.FileStorage.AzureBlob.csproj" />
+  </ItemGroup>
+
+</Project>

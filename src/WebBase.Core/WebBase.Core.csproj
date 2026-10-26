@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    What the app and every module agree on: the records (Models/), the store
+    interfaces (Data/), file storage (FileStorage/) and what a module is
+    (Modules/). Deliberately no packages: nothing here knows any particular
+    database or cloud. See docs/MODULES.md.
+  -->
+  <PropertyGroup>
+    <RootNamespace>WebBase</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Configuration and dependency injection, as ASP.NET Core has them. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+</Project>

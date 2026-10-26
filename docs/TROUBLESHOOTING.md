@@ -44,7 +44,7 @@ whether you're asking a person or an AI. Copy it in full.
 | Want a clean development database | `./dev.sh reset-db` |
 | `pending model changes` warning in the logs | Same as the first row: add a migration. |
 | Prod with `PROD_DATABASE_URL`: "did not come up healthy", `Name or service not known`, `timeout`, or `no pg_hba.conf entry` | The managed database can't be reached from this computer, or refuses it. Check the URL, and the provider's firewall / allowed-addresses setting. `./deploy.sh logs` shows the exact error. |
-| `Database:Provider is 'x', which this app doesn't have` | A typo in `Database__Provider`, or a database implementation that hasn't been added ([DATABASE.md](DATABASE.md#switching-to-another-database)). |
+| `Database:Provider is 'x', but this app is built with: ...` | A typo in `Database__Provider`, or a database module the app isn't built with yet: `./scripts/module.sh add <name>` ([MODULES.md](MODULES.md)). |
 | `isn't a complete backup` from `restore.sh` | That file came from a backup that failed, or it's damaged. Use an older one. |
 
 ## Production
@@ -56,6 +56,8 @@ whether you're asking a person or an AI. Copy it in full.
 | Deploy said "did not come up healthy" | It already switched back to the previous release. Read the error it printed, fix it, and deploy again. |
 | Works on localhost, not on the domain | See the table at the end of [CLOUDFLARE_TUNNEL.md](CLOUDFLARE_TUNNEL.md#if-it-doesnt-work). |
 | "Too many attempts" when signing in | The rate limit: 10 tries a minute per visitor. Wait a minute. |
+| `Cms:Source is 'gcs', but this app is built with: files` (or `s3`, `azure`) | Build the app with that storage module: `./scripts/module.sh add gcs`, commit, deploy ([MODULES.md](MODULES.md)). |
+| Google Cloud Run: setup, the GitHub deploy, or the live site | The table at the end of [GOOGLE_CLOUD.md](GOOGLE_CLOUD.md#if-something-goes-wrong). |
 | CMS pages say "The site's content can't be reached right now" (503) | The bucket can't be read: a wrong bucket, prefix or region, missing permission, or the service is down. The log line at startup names the store (`cms=on (s3://...)`), and `./deploy.sh logs` shows the error. |
 
 ## Signed in, then suddenly signed out

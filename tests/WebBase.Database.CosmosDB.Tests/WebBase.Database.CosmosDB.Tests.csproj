@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The contract tests against WebBase.Database.CosmosDB. Common settings: ../Directory.Build.props. -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\modules\WebBase.Database.CosmosDB\WebBase.Database.CosmosDB.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,4 +1,6 @@
-// Deliberately no Entity Framework here: only Data/Postgres/ uses it, so
-// nothing else can come to depend on which database is behind the stores.
-global using WebBase.Api.Data;
-global using WebBase.Api.Models;
+// Deliberately no Entity Framework or cloud SDKs here: those live in modules
+// (modules/), so nothing in the app can come to depend on which database or
+// storage is behind the interfaces. ArchitectureTests checks it.
+global using WebBase.Data;
+global using WebBase.Models;
+global using WebBase.FileStorage;

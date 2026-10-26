@@ -1,0 +1,25 @@
+<Solution>
+  <!-- The app. -->
+  <Folder Name="/src/">
+    <Project Path="src/WebBase.Api/WebBase.Api.csproj" />
+    <Project Path="src/WebBase.Core/WebBase.Core.csproj" />
+  </Folder>
+  <!-- Databases and file storage: built and tested here, part of the app only
+       when WebBase.Api references them (docs/MODULES.md). -->
+  <Folder Name="/modules/">
+    <Project Path="modules/WebBase.Database.Postgres/WebBase.Database.Postgres.csproj" />
+    <Project Path="modules/WebBase.Database.CosmosDB/WebBase.Database.CosmosDB.csproj" />
+    <Project Path="modules/WebBase.FileStorage.S3/WebBase.FileStorage.S3.csproj" />
+    <Project Path="modules/WebBase.FileStorage.AzureBlob/WebBase.FileStorage.AzureBlob.csproj" />
+    <Project Path="modules/WebBase.FileStorage.GoogleCloud/WebBase.FileStorage.GoogleCloud.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/WebBase.Testing/WebBase.Testing.csproj" />
+    <Project Path="tests/WebBase.Tests/WebBase.Tests.csproj" />
+    <Project Path="tests/WebBase.Database.Postgres.Tests/WebBase.Database.Postgres.Tests.csproj" />
+    <Project Path="tests/WebBase.Database.CosmosDB.Tests/WebBase.Database.CosmosDB.Tests.csproj" />
+    <Project Path="tests/WebBase.FileStorage.S3.Tests/WebBase.FileStorage.S3.Tests.csproj" />
+    <Project Path="tests/WebBase.FileStorage.AzureBlob.Tests/WebBase.FileStorage.AzureBlob.Tests.csproj" />
+    <Project Path="tests/WebBase.FileStorage.GoogleCloud.Tests/WebBase.FileStorage.GoogleCloud.Tests.csproj" />
+  </Folder>
+</Solution>

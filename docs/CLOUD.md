@@ -7,15 +7,16 @@ run it. This page covers:
 - [The database: use a managed one](#the-database-use-a-managed-one)
 - [The CMS content](#the-cms-content), if you use it
 - [What every host needs](#what-every-host-needs), which is the whole story if your host isn't listed
-- Scripted: [Azure](#microsoft-azure), [AWS](#amazon-web-services-aws), [Google Cloud](#google-cloud)
+- Scripted: [Azure](#microsoft-azure), [AWS](#amazon-web-services-aws), [Google Cloud](#google-cloud) (free tier, browser only: [GOOGLE_CLOUD.md](GOOGLE_CLOUD.md))
 - Click-through: [Render](#render), [Railway](#railway), [Fly.io](#flyio), [DigitalOcean](#digitalocean-app-platform)
 - [Any Linux server](#any-linux-server-vps), the same as running at home
 
-**Which should I pick?** For a first site, Render or Railway (both
-click-through, with a database included) or a VPS (about $5/month, plus a
-managed database once the data matters) are the simplest.
-Pick Azure, AWS or Google Cloud when you already use one of them, need its
-other services, or expect to need to scale. Their scripts here do the setup
+**Which should I pick?** For a first site: **Google Cloud Run**, which is free
+for a small site and needs only a browser to set up ([GOOGLE_CLOUD.md](GOOGLE_CLOUD.md)).
+Render or Railway (both click-through, with a database included) or a VPS
+(about $5/month, plus a managed database once the data matters) are simple too.
+Pick Azure or AWS when you already use one of them, need its other
+services, or expect to need to scale. Their scripts here do the setup
 in one command, but each platform has more parts to understand and its own
 billing to watch.
 
@@ -43,7 +44,7 @@ Every option on this page does it that way:
 |---|---|---|
 | Azure | Azure Database for PostgreSQL (Flexible Server) | `azure.sh setup` |
 | AWS | Amazon RDS for PostgreSQL | `aws.sh setup` |
-| Google Cloud | Cloud SQL for PostgreSQL | `gcp.sh setup` |
+| Google Cloud | Cloud SQL for PostgreSQL (or a free Neon database, [GOOGLE_CLOUD.md](GOOGLE_CLOUD.md)) | `gcp.sh setup` |
 | Render, Railway, DigitalOcean, Fly.io | the host's own PostgreSQL | a few clicks, below |
 | Anything | [Neon](https://neon.tech), [Supabase](https://supabase.com) (both have free tiers) | paste its connection string as `DATABASE_URL` |
 
@@ -60,15 +61,18 @@ reaches its data through swappable *stores*, see [DATABASE.md](DATABASE.md).
 If you use the [CMS](CMS.md), its pages are built into the image from
 `content/` by default, and published with each deploy. To publish pages
 without a release, put them in the cloud's storage instead: an **S3 bucket**
-(AWS, or an S3-compatible one such as Cloudflare R2) or an **Azure Blob
-container** ([CMS.md](CMS.md#where-the-content-lives)).
+(AWS, or an S3-compatible one such as Cloudflare R2), an **Azure Blob
+container** or a **Google Cloud Storage bucket** ([CMS.md](CMS.md#where-the-content-lives)).
+Each is a module the app has to be built with first: `./scripts/module.sh add s3`
+(or `azure`, `gcs`), see [MODULES.md](MODULES.md).
 
 The scripts below pass `CMS_ENABLED`, `CMS_SOURCE` and the bucket settings
-from `.env.local` on to the app, but they don't create the bucket or give the
-app access to it. Do that once yourself ([CMS.md](CMS.md#in-a-cloud)):
-the ECS task role on AWS, the container app's managed identity on Azure. The
-scripts never copy an access key or connection string to the cloud; they warn
-if `.env.local` has one, since in the cloud it belongs in the host's secrets.
+(from `.env.local`, or `cloud.env`) on to the app. `gcp.sh setup` also creates
+the Google bucket and lets the app read it. On AWS and Azure, give the app
+access once yourself ([CMS.md](CMS.md#in-a-cloud)): the ECS task role, or the
+container app's managed identity. The scripts never copy an access key or
+connection string to the cloud; they warn if `.env.local` has one, since in
+the cloud it belongs in the host's secrets.
 
 ---
 
@@ -200,30 +204,31 @@ balancer. Or put Cloudflare in front: a proxied CNAME to the `on.aws` address.
 
 ## Google Cloud
 
-**Cloud Run** runs the container. It scales to zero when nobody visits, and
-HTTPS and an address are included. **Cloud SQL** holds the data. Roughly
-$10-15/month for the smallest Cloud SQL instance, and the app is often within
-Cloud Run's free tier.
+**Cloud Run** runs the container. It scales to zero when nobody visits, HTTPS
+and an address are included, and a small site fits in its **free tier**.
 
-1. Install the gcloud CLI: <https://cloud.google.com/sdk/docs/install>
-2. `gcloud auth login`, then `gcloud config set project <your-project-id>`.
-   The project needs **billing enabled** (console → Billing).
-3. `./scripts/cloud/gcp.sh setup`
+**The full guide is [GOOGLE_CLOUD.md](GOOGLE_CLOUD.md)**: browser only (Google
+Cloud Shell, no installs), a free Neon database, and GitHub Actions deploying
+every push to `main` without any key. In short:
 
-It turns on the APIs it needs, creates an image repository, a Cloud SQL
-instance and database (5-10 minutes), and stores the secrets in Secret
-Manager, then deploys. The address looks like `https://webbase-xxxx.a.run.app`.
+```bash
+# in Cloud Shell (https://shell.cloud.google.com), in a clone of your repository
+gcloud config set project <your-project-id>
+./scripts/cloud/gcp.sh setup     # asks for the database's connection string
+./scripts/cloud/gcp.sh github    # then add the four variables it prints to GitHub
+```
 
 | Later | |
 |---|---|
-| Release a new version | `./scripts/cloud/gcp.sh deploy` |
+| Release a new version | Push to `main` (tested, then deployed), or `./scripts/cloud/gcp.sh deploy` where Docker runs |
+| Change a setting | `cloud.env` (public settings), then push; secrets: `setup` again |
 | The address | `./scripts/cloud/gcp.sh url` |
 | Recent logs | `./scripts/cloud/gcp.sh logs` |
-| Delete everything (data too) | `./scripts/cloud/gcp.sh destroy` |
+| Delete it | `./scripts/cloud/gcp.sh destroy` |
 
-Options in `.env.local`: `GCP_PROJECT`, `GCP_REGION` (the default is
-`us-central1`), and `GCP_DATABASE_URL` to use your own database instead of
-Cloud SQL.
+**Cloud SQL** (Google's own PostgreSQL, about $10/month, not free):
+`GCP_CLOUD_SQL=true ./scripts/cloud/gcp.sh setup` creates one (5-10 minutes)
+and connects the service to it.
 
 **Your own domain**: Cloud Run → your service → *Integrations / Custom
 domains*, or put Cloudflare in front.

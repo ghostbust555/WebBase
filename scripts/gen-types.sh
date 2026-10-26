@@ -13,12 +13,11 @@ need_docker
 say "Generating client/src/api-types.ts"
 docker run --rm \
   -v "$ROOT:/src" -w /src \
-  -v /src/${API_DIR}/obj -v /src/${API_DIR}/bin \
-  -v /src/tests/WebBase.Tests/obj -v /src/tests/WebBase.Tests/bin \
+  -v /src/.build \
   -v "${SLUG}-dev_nuget:/root/.nuget/packages" \
   -e WRITE_TYPESCRIPT=1 -e DOTNET_CLI_TELEMETRY_OPTOUT=1 -e DOTNET_NOLOGO=1 \
   mcr.microsoft.com/dotnet/sdk:10.0 \
-  bash -c 'dotnet test --nologo -v q --filter "FullyQualifiedName~TypeScriptContractsTests.The_committed" >/dev/null; status=$?
+  bash -c 'dotnet test tests/WebBase.Tests --nologo -v q --filter "FullyQualifiedName~TypeScriptContractsTests.The_committed" >/dev/null; status=$?
            # Made in the container, owned by you.
            chown '"$(id -u):$(id -g)"' client/src/api-types.ts 2>/dev/null
            exit $status' \

@@ -50,15 +50,4 @@ public class PlumbingTests(TestApp app) : IClassFixture<TestApp>
         var error = Assert.ThrowsAny<Exception>(() => prod.CreateClient());
         Assert.Contains("Jwt:Key", error.ToString());
     }
-
-    [Theory]
-    [InlineData("postgres://u:p%40ss@db.example.com:6543/app?sslmode=require",
-                "Host=db.example.com;Port=6543;Database=app;Username=u;Password=p@ss;SSL Mode=Require")]
-    [InlineData("postgresql://u:p@localhost/app", "Host=localhost;Port=5432;Database=app;Username=u;Password=p")]
-    [InlineData("postgres://u:p@localhost/app?host=/cloudsql/proj:region:db",
-                "Host=/cloudsql/proj:region:db;Port=5432;Database=app;Username=u;Password=p")]
-    public void Database_urls_become_connection_strings(string url, string expected)
-    {
-        Assert.Equal(expected, DatabaseUrl.ToConnectionString(url));
-    }
 }

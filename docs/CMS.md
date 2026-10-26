@@ -7,8 +7,9 @@ you'd rather write than code. The same files can also set the site's
 **colours** ([theme.css](#the-sites-look-themecss)).
 
 The files can live in the `content/` folder of this repository (the default),
-or in an **S3 bucket** or **Azure Blob Storage container**, so writers can
-publish without a release ([Where the content lives](#where-the-content-lives)).
+or in an **S3 bucket**, an **Azure Blob Storage container** or a **Google
+Cloud Storage bucket**, so writers can publish without a release
+([Where the content lives](#where-the-content-lives)).
 
 It's **off** until you turn it on, and while it's off nothing about it is
 reachable.
@@ -118,11 +119,22 @@ commented out as it ships, the site keeps the colours in
 from. The layout inside is the same everywhere: the files and folders of
 `content/`.
 
+Every source but `files` is a **module**: its own project, with that cloud's
+library, which the app is only built with when you ask
+([MODULES.md](MODULES.md)). Add the one you need first, and commit:
+
+```bash
+./scripts/module.sh add s3      # or azure, or gcs
+```
+
+Without it, the app stops at startup and says so.
+
 | `CMS_SOURCE` | The files are in | Settings |
 |---|---|---|
 | `files` (default) | A folder: `content/` in this repository | none |
 | `s3` | An Amazon S3 bucket, or an **S3-compatible** one: Cloudflare R2, DigitalOcean Spaces, Backblaze B2, MinIO... | `CMS_S3_BUCKET`, and optionally `CMS_S3_PREFIX`, `CMS_S3_REGION`, `CMS_S3_SERVICE_URL`, `CMS_S3_ACCESS_KEY` + `CMS_S3_SECRET_KEY` |
 | `azure` | An Azure Blob Storage container | `CMS_AZURE_CONTAINER_URL`, or `CMS_AZURE_CONNECTION_STRING` + `CMS_AZURE_CONTAINER`; optionally `CMS_AZURE_PREFIX` |
+| `gcs` | A Google Cloud Storage bucket | `CMS_GCS_BUCKET`, optionally `CMS_GCS_PREFIX` |
 
 The **prefix** is a folder inside the bucket, e.g. `www`, so one bucket can
 hold several sites, or other things too. Empty means the whole bucket.
@@ -163,6 +175,19 @@ CMS_AZURE_PREFIX=www
   `CMS_AZURE_CONTAINER`. **A secret too**, and it can write as well as read;
   prefer the other two.
 
+### Google Cloud Storage
+
+```
+CMS_SOURCE=gcs
+CMS_GCS_BUCKET=my-site-content
+CMS_GCS_PREFIX=www
+```
+
+- No keys: the app signs in as itself, the Cloud Run service's own account.
+  On Cloud Run, `./scripts/cloud/gcp.sh setup` creates the bucket and gives
+  that account **Storage Object Viewer** on it ([GOOGLE_CLOUD.md](GOOGLE_CLOUD.md#the-cms-in-a-cloud-storage-bucket)).
+- On your own computer, the app uses your `gcloud auth application-default login`.
+
 ### Publishing to a bucket
 
 Upload the folder. Pages change on the site within a minute
@@ -174,6 +199,9 @@ aws s3 sync content/ s3://my-site-content/www/ --delete
 
 # S3-compatible: the same, with the provider's endpoint
 aws s3 sync content/ s3://my-site-content/www/ --delete --endpoint-url https://<account-id>.r2.cloudflarestorage.com
+
+# Google Cloud Storage (also removes pages you've deleted locally; Cloud Shell has gcloud)
+gcloud storage rsync content gs://my-site-content/www --recursive --delete-unmatched-destination-objects
 
 # Azure (upload-batch doesn't remove deleted files; delete those in the portal,
 # or use azcopy sync with --delete-destination=true)
@@ -197,6 +225,7 @@ Things that change once content is in a bucket:
 On a cloud host, give the app access with the cloud's own identity, not a key:
 
 - **AWS (ECS)**: allow the task role `s3:ListBucket` and `s3:GetObject` on the bucket.
+- **Google Cloud (Cloud Run)**: nothing to do, `gcp.sh setup` does it.
 - **Azure (Container Apps)**: turn on the app's managed identity
   (`az containerapp identity assign --system-assigned`) and give it
   *Storage Blob Data Reader* on the container.
@@ -204,7 +233,7 @@ On a cloud host, give the app access with the cloud's own identity, not a key:
   token, stored in that host's secret settings.
 
 The cloud scripts copy `CMS_ENABLED`, `CMS_SOURCE` and the bucket, prefix,
-region and URL settings from `.env.local`. They **don't** copy the access
+region and URL settings from `.env.local` (or `cloud.env`, committed). They **don't** copy the access
 keys or connection string: they warn instead, because those belong in the
 host's secrets. See [CLOUD.md](CLOUD.md#the-cms-content).
 
@@ -231,7 +260,7 @@ it's cheap even for a large site.
      │  no app page has that address, so router.ts sends it to ContentView.vue
      ▼
  GET /api/content/page?path=blog/hello-world
-     │  ContentController → ContentService → IContentStore (folder, S3 or Azure)
+     │  ContentController → ContentService → IFileStore (a folder, or a storage module)
      ▼
  { title, date, markdown, children } → ContentPageView.vue → markdown rendered and sanitized in the browser
 ```
@@ -239,8 +268,8 @@ it's cheap even for a large site.
 | Piece | File |
 |---|---|
 | Pages, settings, drafts, the copy in memory | `src/WebBase.Api/Content/ContentService.cs` |
-| Where the files come from | `src/WebBase.Api/Content/IContentStore.cs`, with `FileContentStore.cs`, `S3ContentStore.cs`, `AzureBlobContentStore.cs` |
-| Choosing the store from `Cms__Source` | `src/WebBase.Api/Content/ContentRegistration.cs` |
+| Where the files come from | `IFileStore` (`src/WebBase.Core/FileStorage/`), with `LocalFileStore.cs` for a folder; the clouds are modules: `modules/WebBase.FileStorage.S3`, `.AzureBlob`, `.GoogleCloud` |
+| Choosing the store from `Cms__Source` | `src/WebBase.Api/Content/ContentRegistration.cs`, and `src/WebBase.Api/Modules.cs` for the modules the app has |
 | Which names are allowed and served | `src/WebBase.Api/Content/ContentPaths.cs` |
 | theme.css → variables only | `src/WebBase.Api/Content/ThemeCss.cs` |
 | The API (`/api/content/pages`, `/page`, `/theme.css`) and files under `/content/...` | `src/WebBase.Api/Controllers/ContentController.cs` |
@@ -248,20 +277,18 @@ it's cheap even for a large site.
 | How a page looks | `client/src/components/ContentPageView.vue` and `.content-page` in `style.css` |
 | Markdown → safe HTML | `client/src/lib/markdown.ts` |
 | Menu items | `client/src/App.vue` |
-| Tests | `tests/WebBase.Tests/ContentTests.cs`, and `ContentStores/` for each store |
+| Tests | `tests/WebBase.Tests/ContentTests.cs`; each store's in `tests/WebBase.FileStorage.*.Tests/`, all running `tests/WebBase.Testing/FileStoreContractTests.cs` |
 
 The app's own pages (`/login`, `/notes`, `/docs`...) always win: a
 `login.md` is never shown.
 
 ### Another kind of storage
 
-Google Cloud Storage, a database, a headless CMS's API: write a class that
-implements `IContentStore` (list the files, open one; about 60 lines, see
-`FileContentStore.cs`), add a `case` for it in `ContentRegistration.cs`, and
-give it a test class like `tests/WebBase.Tests/ContentStores/S3ContentStoreTests.cs`.
-Those run the same contract tests as the built-in stores. `./scripts/test.sh`
-runs the S3 and Azure ones against local stand-ins (S3Mock and Azurite), so
-no cloud account is needed.
+Dropbox, a database, a headless CMS's API: a new file storage module, which
+lists files and opens one. [MODULES.md](MODULES.md#writing-a-new-one) walks
+through it; the contract tests tell you when it's done. `./scripts/test.sh`
+runs the S3, Azure and Google ones against local stand-ins (S3Mock, Azurite,
+fake-gcs-server), so no cloud account is needed.
 
 ## Limits, and where to go from here
 

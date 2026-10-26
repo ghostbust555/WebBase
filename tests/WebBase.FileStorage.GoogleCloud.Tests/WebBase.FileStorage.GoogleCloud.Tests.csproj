@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The contract tests against WebBase.FileStorage.GoogleCloud. Common settings: ../Directory.Build.props. -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\modules\WebBase.FileStorage.GoogleCloud\WebBase.FileStorage.GoogleCloud.csproj" />
+  </ItemGroup>
+
+</Project>

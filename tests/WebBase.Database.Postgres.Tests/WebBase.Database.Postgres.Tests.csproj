@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The contract tests against WebBase.Database.Postgres. Common settings: ../Directory.Build.props. -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\modules\WebBase.Database.Postgres\WebBase.Database.Postgres.csproj" />
+  </ItemGroup>
+
+</Project>

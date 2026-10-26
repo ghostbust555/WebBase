@@ -7,6 +7,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# C# build output (Directory.Build.props). Containers mount their own volume
+# here; made now so Docker doesn't create it as root.
+mkdir -p "$ROOT/.build"
+
 # The project's short lowercase name: Docker image and database names.
 # scripts/rename.sh changes it along with everything else.
 SLUG="webbase"
@@ -15,6 +19,8 @@ SLUG="webbase"
 # The PostgreSQL client tools, for databases outside the compose files.
 PG_IMAGE="postgres:18.6-alpine"
 API_DIR="src/WebBase.Api"
+# The PostgreSQL module: Entity Framework and its migrations.
+POSTGRES_DIR="modules/WebBase.Database.Postgres"
 
 bold()  { printf '\033[1m%s\033[0m\n' "$*"; }
 say()   { printf '\033[1;34m==>\033[0m \033[1m%s\033[0m\n' "$*"; }

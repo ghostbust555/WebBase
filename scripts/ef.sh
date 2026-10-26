@@ -22,13 +22,13 @@ tty=(); [ -t 0 ] && [ -t 1 ] && tty=(-t)
 
 docker run --rm -i "${tty[@]}" "${network[@]}" \
   -v "$ROOT:/src" -w /src \
-  -v /src/${API_DIR}/obj -v /src/${API_DIR}/bin \
+  -v /src/.build \
   -v "${SLUG}-dev_nuget:/root/.nuget/packages" \
   -e App__Environment=development \
   -e "ConnectionStrings__Default=Host=db;Port=5432;Database=${SLUG};Username=${SLUG};Password=${SLUG}" \
   -e DOTNET_CLI_TELEMETRY_OPTOUT=1 -e DOTNET_NOLOGO=1 \
   mcr.microsoft.com/dotnet/sdk:10.0 \
-  bash -c 'dotnet tool restore >/dev/null && dotnet restore -v q '"${API_DIR}"' >/dev/null && dotnet ef "$@" --project '"${API_DIR}"'; status=$?
+  bash -c 'dotnet tool restore >/dev/null && dotnet restore -v q '"${POSTGRES_DIR}"' >/dev/null && dotnet ef "$@" --project '"${POSTGRES_DIR}"'; status=$?
            # Files made in the container belong to you, not to root.
-           [ -d '"${API_DIR}"'/Data/Postgres/Migrations ] && chown -R '"$(id -u):$(id -g)"' '"${API_DIR}"'/Data/Postgres/Migrations
+           [ -d '"${POSTGRES_DIR}"'/Migrations ] && chown -R '"$(id -u):$(id -g)"' '"${POSTGRES_DIR}"'/Migrations
            exit $status' ef "$@"

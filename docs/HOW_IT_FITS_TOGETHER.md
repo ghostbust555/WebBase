@@ -13,7 +13,8 @@ browser to the database and back.
   │   browser)    │ JSON │                    │      │              │
   └───────────────┘      └────────────────────┘      └──────────────┘
      client/                src/WebBase.Api/            tables made by
-                                                        Data/Postgres/Migrations/
+                            (+ src/WebBase.Core/,       modules/WebBase.Database.
+                               modules/)                Postgres/Migrations/
 ```
 
 **The website** (`client/`) is what people see. It's a *single-page app*: the
@@ -30,13 +31,15 @@ belongs in the API.
 
 **The database** (PostgreSQL) stores everything that must survive a restart:
 accounts, notes, and whatever you add. You don't write SQL by hand. Records
-are plain C# classes (`Models/`), and the API reaches the database only
-through small interfaces called *stores* (`Data/IUserStore.cs`,
-`Data/INoteStore.cs`). The PostgreSQL implementation behind them
-(`Data/Postgres/`) uses Entity Framework, which turns those classes into
-tables and queries. Because nothing else knows about PostgreSQL, the database
-can be swapped (a managed cloud Postgres, or Cosmos DB) without changing the
-rest. See [DATABASE.md](DATABASE.md).
+are plain C# classes (`src/WebBase.Core/Models/`), and the API reaches the
+database only through small interfaces called *stores*
+(`src/WebBase.Core/Data/IUserStore.cs`, `INoteStore.cs`). The PostgreSQL
+implementation behind them is a separate project, a *module*
+(`modules/WebBase.Database.Postgres/`), which uses Entity Framework to turn
+those classes into tables and queries. Because nothing else knows about
+PostgreSQL, the database can be swapped (a managed cloud Postgres, or the
+Cosmos DB module) without changing the rest. See [DATABASE.md](DATABASE.md)
+and [MODULES.md](MODULES.md).
 
 ## Development: three containers, your live code
 
@@ -115,7 +118,7 @@ What happens when a signed-in person adds a note:
    anyone without a valid token (401). `Create` checks the text, makes a `Note`
    with `UserId = User.GetUserId()`, and hands it to the note store
    (`INoteStore.AddAsync`).
-6. **The database** - the PostgreSQL store (`Data/Postgres/PostgresNoteStore.cs`)
+6. **The database** - the PostgreSQL store (`modules/WebBase.Database.Postgres/PostgresNoteStore.cs`)
    saves it through Entity Framework, which sends an `INSERT` into the `Notes` table.
 7. **Back** - the controller returns the new note as JSON. The page adds it
    to the list.
@@ -178,7 +181,7 @@ The full list is in [CONFIGURATION.md](CONFIGURATION.md).
 | How the website calls the API | `client/src/api.ts`. Its types, `api-types.ts`, are generated from the C# ([DEVELOPING.md](DEVELOPING.md#5-the-website-apits-and-a-page)) |
 | An API endpoint | `src/WebBase.Api/Controllers/` |
 | Business rules | `src/WebBase.Api/Services/` |
-| A kind of record (a database table) | `src/WebBase.Api/Models/`, a store in `Data/` + `Data/Postgres/`, then a migration ([DEVELOPING.md](DEVELOPING.md#adding-a-feature-step-by-step)) |
+| A kind of record (a database table) | `src/WebBase.Core/Models/`, a store in `src/WebBase.Core/Data/` + the Postgres module, then a migration ([DEVELOPING.md](DEVELOPING.md#adding-a-feature-step-by-step)) |
 | Which database, and where it runs | `Database__Provider`, `DATABASE_URL` / `PROD_DATABASE_URL`, see [DATABASE.md](DATABASE.md) |
 | How the server is wired together | `src/WebBase.Api/Program.cs` |
 | Production's container | `ops/Dockerfile`, `compose.prod.yaml` |
