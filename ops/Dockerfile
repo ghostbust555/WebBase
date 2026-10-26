@@ -10,11 +10,14 @@
 
 # ---- 1. Build the website (Vue) into plain HTML/JS/CSS ----------------------
 FROM node:22-alpine AS client
-WORKDIR /client
+WORKDIR /build/client
 # Dependencies first, on their own, so editing a page doesn't re-download them.
 COPY client/package.json client/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY client/ ./
+# The guides are built into the site (the /docs pages and the first home page).
+COPY docs/ /build/docs/
+COPY README.md /build/
 RUN npm run build
 
 # ---- 2. Compile the API (C#) ------------------------------------------------
@@ -30,10 +33,14 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
 COPY --from=api /app ./
 # The API serves the website from wwwroot (see Program.cs).
-COPY --from=client /client/dist ./wwwroot
+COPY --from=client /build/client/dist ./wwwroot
+# The CMS's pages travel with the release, so a release is code and content
+# together, as committed. Used only when Cms__Enabled=true (docs/CMS.md).
+COPY content/ ./content/
 
 # Listen on 8080. A cloud host that sets PORT overrides this (Program.cs).
 ENV ASPNETCORE_HTTP_PORTS=8080 \
+    Cms__ContentPath=/app/content \
     DOTNET_CLI_TELEMETRY_OPTOUT=1
 EXPOSE 8080
 

@@ -11,7 +11,8 @@ namespace WebBase.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/config")]
-public class ConfigController(IOptions<AppOptions> app, IOptionsMonitor<GoogleAuthOptions> google) : ControllerBase
+public class ConfigController(
+    IOptions<AppOptions> app, IOptionsMonitor<GoogleAuthOptions> google, IOptions<CmsOptions> cms) : ControllerBase
 {
     [HttpGet]
     public object Get() => new
@@ -20,5 +21,6 @@ public class ConfigController(IOptions<AppOptions> app, IOptionsMonitor<GoogleAu
         environment = app.Value.IsDevelopment ? "development" : "prod",
         build = app.Value.Build,
         googleClientId = google.CurrentValue.Enabled ? google.CurrentValue.ClientId : null,
+        cms = cms.Value.Enabled,
     };
 }

@@ -105,6 +105,64 @@ input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .facts dt { color: var(--muted); }
 .facts dd { margin: 0; }
 
+/* ---- Markdown: the docs viewer and CMS pages ---- */
+
+.prose { min-width: 0; overflow-wrap: anywhere; }
+.prose > :first-child { margin-top: 0; }
+.prose h1 { font-size: 2rem; margin: 0 0 16px; }
+.prose h2 { font-size: 1.4rem; margin: 36px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.prose h3 { font-size: 1.1rem; margin: 28px 0 8px; }
+.prose h1, .prose h2, .prose h3 { scroll-margin-top: 16px; }
+.prose p, .prose ul, .prose ol { margin: 0 0 14px; }
+.prose li { margin: 4px 0; }
+.prose li > p { margin: 0; }
+.prose img { max-width: 100%; height: auto; border-radius: 8px; }
+.prose hr { border: 0; border-top: 1px solid var(--border); margin: 28px 0; }
+.prose blockquote {
+  margin: 0 0 14px; padding: 8px 16px; border-left: 4px solid var(--accent);
+  background: var(--surface); color: var(--muted); border-radius: 0 8px 8px 0;
+}
+.prose blockquote p:last-child { margin: 0; }
+.prose pre {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 14px; overflow-x: auto; margin: 0 0 14px; line-height: 1.45;
+}
+.prose pre code { background: none; padding: 0; font-size: 0.88em; }
+/* Wide tables scroll sideways instead of stretching the page on a phone. */
+.prose table { display: block; overflow-x: auto; border-collapse: collapse; margin: 0 0 16px; max-width: 100%; }
+.prose th, .prose td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; vertical-align: top; }
+.prose th { background: var(--surface); }
+
+/* The guides: a menu beside the page on wide screens, above it on phones. */
+.docs { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 32px; align-items: start; }
+.docs-menu { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 2px; font-size: 0.92rem; }
+.docs-menu a { color: var(--muted); text-decoration: none; padding: 5px 10px; border-radius: 6px; }
+.docs-menu a:hover { color: var(--text); background: var(--surface); }
+.docs-menu a.active { color: var(--accent); background: var(--surface); font-weight: 600; }
+@media (max-width: 760px) {
+  .docs { grid-template-columns: 1fr; gap: 16px; }
+  .docs-menu { position: static; flex-direction: row; flex-wrap: wrap; }
+}
+
+.starter {
+  background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent);
+  border-radius: var(--radius); padding: 14px 18px; margin-bottom: 28px; color: var(--muted);
+}
+.starter strong { color: var(--text); }
+
+.content-page { max-width: 760px; margin: 0 auto; }
+.content-page > h1 { font-size: 2rem; margin: 0 0 4px; }
+.content-page > p.muted { margin: 0 0 20px; }
+.content-page > .prose { margin-top: 20px; }
+.content-list { list-style: none; padding: 0; margin: 24px 0 0; }
+.content-list li { padding: 14px 0; border-top: 1px solid var(--border); }
+.content-list a { font-weight: 600; font-size: 1.05rem; }
+.content-list p { margin: 4px 0 0; }
+.draft {
+  display: inline-block; background: #fef3c7; color: #92400e; font-size: 0.85rem;
+  padding: 2px 10px; border-radius: 999px; margin: 0 0 12px;
+}
+
 .notes { list-style: none; padding: 0; margin: 20px 0 0; }
 .notes li {
   display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; align-items: center;

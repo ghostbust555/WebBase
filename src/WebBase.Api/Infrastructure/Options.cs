@@ -50,6 +50,24 @@ public class JwtOptions
 }
 
 /// <summary>
+/// The optional file-based CMS (Services/ContentService.cs). Bound from "Cms".
+/// </summary>
+public class CmsOptions
+{
+    public const string SectionName = "Cms";
+
+    /// <summary>Off by default: no content endpoints, no /content files, no CMS pages.</summary>
+    public bool Enabled { get; set; }
+
+    /// <summary>
+    /// The content folder. Relative paths are from the API project folder, so
+    /// the default finds content/ at the repository root on a plain `dotnet
+    /// run`. Docker sets an absolute path (compose.dev.yaml, ops/Dockerfile).
+    /// </summary>
+    public string ContentPath { get; set; } = "../../content";
+}
+
+/// <summary>
 /// "Sign in with Google". Only the client id, which is public by design: the
 /// ID-token flow used here needs no client secret. Empty means off - no button,
 /// no Google script, and the endpoint answers 404.

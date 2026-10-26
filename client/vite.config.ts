@@ -21,12 +21,17 @@ export default defineConfig({
     allowedHosts: true,
     proxy: {
       '/api': { target: apiUrl, changeOrigin: true },
+      // The CMS's pictures and files (content/...). A pattern, so a page
+      // called /contents is not caught by it.
+      '^/content/': { target: apiUrl, changeOrigin: true },
       '/scalar': { target: apiUrl, changeOrigin: true },
       '/openapi': { target: apiUrl, changeOrigin: true }
     },
     // File changes inside Docker on macOS/Windows aren't always noticed
     // without polling. compose.dev.yaml turns it on.
-    watch: process.env.VITE_POLL ? { usePolling: true, interval: 300 } : undefined
+    watch: process.env.VITE_POLL ? { usePolling: true, interval: 300 } : undefined,
+    // The guides in ../docs (and ../README.md) are built into the site.
+    fs: { allow: ['..'] }
   },
   build: {
     outDir: 'dist',

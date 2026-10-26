@@ -130,9 +130,12 @@ ready it prints:
     Website     http://localhost:5173
 ```
 
-Open **<http://localhost:5173>** in your browser. That's your website. Press
-**Create an account**, sign up, and try the **Notes** page: what you type is
-saved in your own database.
+Open **<http://localhost:5173>** in your browser. That's your website. Its
+home page is this very guide, so from here on you can read along in the
+browser. Every guide is in the **Guide** menu.
+
+Press **Sign up**, create an account, and try the **Notes** page: what you
+type is saved in your own database.
 
 ---
 
@@ -142,9 +145,14 @@ saved in your own database.
    is free and a good choice (File → Open Folder → `my-site`). On Windows,
    install VS Code's "WSL" extension, then type `code .` in the Ubuntu terminal
    from inside the project folder.
-2. Open `client/src/views/HomeView.vue`.
-3. Change the text between `<h1>` and `</h1>`, or the sentence under it, and save.
+2. Open `client/src/views/HomeView.vue`. It's the home page.
+3. Find the words **Your site is running.**, change them, and save.
 4. Look at the browser. It has already updated.
+
+When you're ready for a real home page, replace what's in that file. The
+guide stays readable at `/docs`. [DEVELOPING.md](DEVELOPING.md#your-home-page)
+explains how. For pages that are mostly text (an About page, a blog), the
+optional [CMS](CMS.md) lets you write them as simple text files instead.
 
 The same works for the C# code under `src/`. Save, and the API rebuilds itself
 within a few seconds.

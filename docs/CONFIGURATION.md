@@ -30,6 +30,7 @@ explained.
 | `POSTGRES_PASSWORD` | prod | The database owner's password. Fixed once prod's database exists |
 | `POSTGRES_APP_PASSWORD` | prod | The app's own database password. Fixed once prod's database exists |
 | `GOOGLE_CLIENT_ID` | dev, prod, cloud | Turns on Google sign-in ([GOOGLE_SIGNIN.md](GOOGLE_SIGNIN.md)) |
+| `CMS_ENABLED` | dev, prod, cloud | `true` turns on the file-based CMS ([CMS.md](CMS.md)) |
 | `CLOUDFLARE_TUNNEL_TOKEN` | `./tunnel.sh` | The tunnel to your domain ([CLOUDFLARE_TUNNEL.md](CLOUDFLARE_TUNNEL.md)) |
 | `DEV_WEB_PORT` | dev | Website port, default 5173 |
 | `DEV_API_PORT` | dev | API port (for tools; the browser doesn't need it), default 5000 |
@@ -56,6 +57,8 @@ second one different ports, for example `DEV_WEB_PORT=5174`,
 | `ConnectionStrings__Migration` | | If set, migrations run on this connection (the owner role in prod) |
 | `Database__MigrateOnStartup` | true | Apply new migrations when the app starts |
 | `Auth__Google__ClientId` | | Google sign-in; empty = off |
+| `Cms__Enabled` | false | The file-based CMS ([CMS.md](CMS.md)) |
+| `Cms__ContentPath` | `../../content` | Where its files are. Docker sets this (`/src/content` in dev, `/app/content` in the image) |
 | `RateLimits__AuthPerMinute` | 10 | Sign-in/sign-up attempts allowed per visitor per minute |
 | `PORT` | | If set (by a cloud host), listen on this port instead of 8080 |
 

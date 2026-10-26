@@ -40,7 +40,8 @@ Make changes, test them in development, commit, then:
 ./deploy.sh
 ```
 
-Database migrations run automatically as the new release starts. If the new
+Database migrations run automatically as the new release starts. If you
+use the [CMS](CMS.md), the `content/` folder goes into the release too. If the new
 release doesn't come up healthy within 90 seconds, `deploy.sh` **switches back
 to the previous release by itself** and shows you the error.
 

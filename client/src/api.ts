@@ -81,6 +81,25 @@ export interface SiteConfig {
   environment: 'development' | 'prod'
   build: string
   googleClientId: string | null
+  /** Whether the file-based CMS is switched on (CMS_ENABLED). */
+  cms: boolean
+}
+
+/** A CMS page in a list or menu. */
+export interface ContentSummary {
+  path: string
+  title: string
+  description: string | null
+  date: string | null
+  order: number | null
+  menu: boolean
+}
+
+/** A whole CMS page. `children` is set when the page is a folder (blog/ → its posts). */
+export interface ContentPage extends ContentSummary {
+  draft: boolean
+  markdown: string
+  children: ContentSummary[] | null
 }
 
 export interface Note {
@@ -105,6 +124,12 @@ export const authApi = {
   me: () => get<User>('/api/auth/me'),
   updateMe: (displayName: string) => put<User>('/api/auth/me', { displayName }),
   refresh: () => post<AuthResponse>('/api/auth/refresh')
+}
+
+// The optional CMS (content/ folder). See docs/CMS.md.
+export const contentApi = {
+  pages: () => get<ContentSummary[]>('/api/content/pages'),
+  page: (path: string) => get<ContentPage>(`/api/content/page?path=${encodeURIComponent(path)}`)
 }
 
 // The example feature. Delete along with NotesView.vue when you remove it.

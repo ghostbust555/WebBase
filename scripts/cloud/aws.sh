@@ -43,7 +43,8 @@ container_json() {
   "environment": [
     {"name": "App__Environment", "value": "prod"},
     {"name": "App__Name", "value": "$(json_escape "$(setting APP_NAME WebBase)")"},
-    {"name": "Auth__Google__ClientId", "value": "$(json_escape "$(setting GOOGLE_CLIENT_ID)")"}
+    {"name": "Auth__Google__ClientId", "value": "$(json_escape "$(setting GOOGLE_CLIENT_ID)")"},
+    {"name": "Cms__Enabled", "value": "$(json_escape "$(setting CMS_ENABLED false)")"}
   ],
   "secrets": [
     {"name": "Jwt__Key", "valueFrom": "${ssm}/jwt-key"},

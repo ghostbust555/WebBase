@@ -11,5 +11,3 @@ backups
 **/node_modules
 client/dist
 tests
-docs
-*.md

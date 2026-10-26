@@ -159,7 +159,10 @@ The full list is in [CONFIGURATION.md](CONFIGURATION.md).
 
 | You want to change... | Look in |
 |---|---|
+| The home page | `client/src/views/HomeView.vue` (or `content/index.md` with the CMS on) |
 | A page's content or layout | `client/src/views/*.vue` |
+| Text pages: about, blog, help (optional CMS) | `content/*.md`, see [CMS.md](CMS.md) |
+| The guides shown at `/docs` | `docs/*.md` |
 | The menu, banner, overall frame | `client/src/App.vue` |
 | Colours, fonts, spacing | `client/src/style.css` (variables at the top) |
 | Which address shows which page | `client/src/router.ts` |

@@ -11,6 +11,15 @@ traps.
 - `src/WebBase.Api/`: ASP.NET Core 10 controllers + EF Core on PostgreSQL.
   `Program.cs` wires everything in numbered sections.
 - `tests/WebBase.Tests/`: xUnit, WebApplicationFactory + EF InMemory (`TestApp.cs`).
+- `content/`: optional file-based CMS (`Cms__Enabled`, off by default). `ContentService`
+  maps addresses to `.md` files; the SPA's catch-all route (`ContentView.vue`) asks
+  `/api/content/page`. Markdown is rendered client-side via `lib/markdown.ts`
+  (marked + DOMPurify), the only sanctioned path to `v-html`. See docs/CMS.md.
+- The home page (`HomeView.vue`) shows docs/GETTING_STARTED.md until replaced, or
+  `content/index.md` when the CMS is on. `docs/*.md` and `README.md` are bundled
+  into the client at build time (`lib/docs.ts`, `import.meta.glob`), so the
+  client build needs the repo root, not just `client/` (Dockerfile and
+  compose.dev.yaml provide it).
 - Prod = one image (`ops/Dockerfile`): the API serves the built SPA from wwwroot.
   Dev = three containers (`compose.dev.yaml`) running source with hot reload;
   Vite proxies `/api` to the API.
@@ -61,5 +70,9 @@ Everything runs in Docker; no host SDKs are required.
 - `.docker-data/` is written by containers as other uids; delete it via
   `./dev.sh reset-db` or a container, not plain `rm`.
 - Postgres 18 images mount at `/var/lib/postgresql`, not `.../data`.
+- Links inside docs/*.md must be plain `OTHER_DOC.md` or `OTHER_DOC.md#anchor`
+  (GitHub-style slugs) so they work both on GitHub and in the /docs viewer.
+- In dev, `/content/...` reaches the API only through the `^/content/` proxy
+  rule in vite.config.ts; a new server-side path prefix needs its own rule there.
 - `scripts/rename.sh` rewrites `WebBase`/`webbase` everywhere; run it before any
   data exists (database names change).

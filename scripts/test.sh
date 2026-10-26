@@ -16,8 +16,9 @@ docker run --rm \
   mcr.microsoft.com/dotnet/sdk:10.0 dotnet test --nologo
 
 say "Website: type check and build"
+# The whole repository, read-only: the build reads docs/ and README.md too.
 docker run --rm \
-  -v "$ROOT/client:/client" -w /client -v /client/node_modules -v /client/dist \
+  -v "$ROOT:/src:ro" -w /src/client -v /src/client/node_modules -v /src/client/dist \
   node:22-alpine sh -c 'npm ci --no-audit --no-fund --loglevel=error && npm run build'
 
 ok "All checks passed"

@@ -22,6 +22,7 @@ var config = builder.Configuration;
 
 builder.Services.Configure<AppOptions>(config.GetSection(AppOptions.SectionName));
 builder.Services.Configure<GoogleAuthOptions>(config.GetSection(GoogleAuthOptions.SectionName));
+builder.Services.Configure<CmsOptions>(config.GetSection(CmsOptions.SectionName));
 var appOptions = config.GetSection(AppOptions.SectionName).Get<AppOptions>() ?? new AppOptions();
 
 // Cloud hosts (Cloud Run, Render, Railway, Heroku...) say which port to listen
@@ -52,6 +53,7 @@ builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connect
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddSingleton<TokenService>();
 builder.Services.AddSingleton<IGoogleIdentity, GoogleIdentity>();
+builder.Services.AddSingleton<ContentService>();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -107,6 +109,21 @@ if (appOptions.IsDevelopment)
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
+// The CMS's images and other files: content/images/cat.jpg is served at
+// /content/images/cat.jpg. Never the .md files themselves - drafts live there.
+var content = app.Services.GetRequiredService<ContentService>();
+if (content.Enabled && Directory.Exists(content.Root))
+{
+    var types = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+    types.Mappings.Remove(".md");
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(content.Root),
+        RequestPath = "/content",
+        ContentTypeProvider = types,
+    });
+}
+
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -142,10 +159,11 @@ if (config.GetValue("Database:MigrateOnStartup", true))
     }
 }
 
-app.Logger.LogInformation("{Name} starting: environment={Environment} build={Build} google-sign-in={Google}",
+app.Logger.LogInformation("{Name} starting: environment={Environment} build={Build} google-sign-in={Google} cms={Cms}",
     appOptions.Name, appOptions.IsDevelopment ? "development" : "prod",
     string.IsNullOrEmpty(appOptions.Build) ? "local" : appOptions.Build,
-    string.IsNullOrWhiteSpace(config["Auth:Google:ClientId"]) ? "off" : "on");
+    string.IsNullOrWhiteSpace(config["Auth:Google:ClientId"]) ? "off" : "on",
+    content.Enabled ? $"on ({content.Root})" : "off");
 
 // ---- 6. Run ----------------------------------------------------------------
 app.Run();

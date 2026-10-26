@@ -17,6 +17,24 @@ Most C# edits apply without a restart. A few changes (adding a class to
 `dotnet watch` does that by itself. After editing `.env.local`, run
 `./dev.sh restart`.
 
+## Your home page
+
+A new project's home page shows the getting-started guide, so the first thing
+anyone sees is how to get going. Replace it when you're ready, in one of two
+ways:
+
+- **Write it as a page of the app:** replace everything in
+  `client/src/views/HomeView.vue` with your own template. Any `.vue` page is a
+  good starting point to copy.
+- **Write it as text:** turn on the [CMS](CMS.md) and edit `content/index.md`.
+  While that file exists, it's the home page.
+
+The guides stay at `/docs` (the **Guide** link in the menu). They're built from
+the `docs/` folder, so editing a guide updates that page too. For a site
+where visitors shouldn't see them, remove the `/docs` route from
+`client/src/router.ts` and the **Guide** link from `App.vue`. Optionally
+delete `DocsView.vue`, `components/DocsReader.vue` and `lib/docs.ts` too.
+
 ## Adding a feature, step by step
 
 The **Notes** feature is a complete example of every layer. To build your
@@ -119,7 +137,7 @@ Once you no longer need Notes as a pattern, delete:
 - `src/WebBase.Api/Models/Note.cs`, `Controllers/NotesController.cs`, `Contracts/NoteContracts.cs`
 - the `Notes` lines in `Data/AppDbContext.cs` and `Models/User.cs`
 - `client/src/views/NotesView.vue`, the `notesApi`/`Note` part of `client/src/api.ts`,
-  its route in `router.ts`, its menu link in `App.vue`, and the button on `HomeView.vue`
+  its route in `router.ts`, and its menu link in `App.vue`
 - `tests/WebBase.Tests/NotesApiTests.cs` and the notes checks in `scripts/smoke.sh`
 
 then `./scripts/ef.sh migrations add RemoveNotes` and `./scripts/test.sh`.

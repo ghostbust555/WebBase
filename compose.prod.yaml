@@ -41,6 +41,8 @@ services:
       ConnectionStrings__Migration: "Host=db;Port=5432;Database=webbase;Username=webbase_owner;Password=${POSTGRES_PASSWORD};Pooling=false"
       Jwt__Key: ${JWT_KEY:?Set JWT_KEY in .env.local (./setup.sh does this)}
       Auth__Google__ClientId: ${GOOGLE_CLIENT_ID:-}
+      # The CMS's pages are inside the image (content/ as of the release).
+      Cms__Enabled: ${CMS_ENABLED:-false}
     ports:
       # This computer only. The public reaches it through the tunnel below.
       - "127.0.0.1:${PROD_PORT:-8080}:8080"

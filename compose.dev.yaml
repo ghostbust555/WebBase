@@ -45,6 +45,9 @@ services:
       # Empty is fine here: development falls back to a built-in key.
       Jwt__Key: ${JWT_KEY:-}
       Auth__Google__ClientId: ${GOOGLE_CLIENT_ID:-}
+      # The optional CMS, reading content/ live: edit a page, reload the browser.
+      Cms__Enabled: ${CMS_ENABLED:-false}
+      Cms__ContentPath: /src/content
       # Notice file changes made from outside the container (your editor).
       DOTNET_USE_POLLING_FILE_WATCHER: "1"
       DOTNET_WATCH_RESTART_ON_RUDE_EDIT: "1"
@@ -74,6 +77,9 @@ services:
     volumes:
       - ./client:/client
       - web-node-modules:/client/node_modules
+      # The guides, shown at /docs and as the first home page.
+      - ./docs:/docs:ro
+      - ./README.md:/README.md:ro
     ports:
       # Every network interface, so a phone on the same Wi-Fi can open
       # http://<this computer's name>:5173. Change to "127.0.0.1:..." to stop that.

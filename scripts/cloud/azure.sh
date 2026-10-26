@@ -86,6 +86,7 @@ case "${1:-}" in
       --env-vars "App__Environment=prod" "App__Name=$(setting APP_NAME WebBase)" \
                  "Jwt__Key=secretref:jwt-key" "DATABASE_URL=secretref:database-url" \
                  "Auth__Google__ClientId=$(setting GOOGLE_CLIENT_ID)" \
+                 "Cms__Enabled=$(setting CMS_ENABLED false)" \
       -o none
     ok "Deployed. Your site: https://$(az containerapp show -g "$RG" -n "$APP" --query properties.configuration.ingress.fqdn -o tsv)"
     echo "    Next time, just: ./scripts/cloud/azure.sh deploy"
@@ -97,7 +98,8 @@ case "${1:-}" in
     registry_login
     build_and_push "$IMAGE" "$BUILD"
     say "Rolling out ${BUILD}"
-    az containerapp update -g "$RG" -n "$APP" --image "$IMAGE" -o none
+    az containerapp update -g "$RG" -n "$APP" --image "$IMAGE" \
+      --set-env-vars "Cms__Enabled=$(setting CMS_ENABLED false)" "Auth__Google__ClientId=$(setting GOOGLE_CLIENT_ID)" -o none
     ok "Deployed ${BUILD}: https://$(az containerapp show -g "$RG" -n "$APP" --query properties.configuration.ingress.fqdn -o tsv)"
     ;;
 

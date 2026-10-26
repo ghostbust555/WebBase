@@ -10,6 +10,7 @@ grow into whatever you're building.
 | **API** | C# / [ASP.NET Core 10](https://learn.microsoft.com/aspnet/core) - `src/WebBase.Api/` |
 | **Database** | [PostgreSQL 18](https://www.postgresql.org), via Entity Framework Core |
 | **Sign-in** | Email + password built in; "Sign in with Google" switched on by one setting |
+| **Content** | Optional file-based CMS: markdown files in `content/` become pages; off until switched on |
 | **Running it** | [Docker](https://www.docker.com) for everything - development and production |
 | **Going public** | [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) from your own computer, or a cloud (Azure, AWS, Google Cloud, Fly, Render...) |
 
@@ -25,6 +26,9 @@ cd my-site
 ./setup.sh        # names your project and creates your secrets
 ./dev.sh          # starts it - then open http://localhost:5173
 ```
+
+The new site's home page is the getting-started guide. Every guide in
+`docs/` can be read in the browser at `/docs`.
 
 Never used a terminal, or don't have Docker yet? Start with
 **[docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)** - it goes step by step.
@@ -54,8 +58,9 @@ Never used a terminal, or don't have Docker yet? Start with
 5. **[Your own domain with Cloudflare Tunnel](docs/CLOUDFLARE_TUNNEL.md)** - public, with no router changes.
 6. **[Deploying to a cloud](docs/CLOUD.md)** - Azure, AWS, Google Cloud, Fly.io, Render, Railway, a VPS.
 7. **[Google sign-in](docs/GOOGLE_SIGNIN.md)** - optional.
-8. **[Settings reference](docs/CONFIGURATION.md)** - every setting and secret.
-9. **[Troubleshooting](docs/TROUBLESHOOTING.md)** - when something doesn't work.
+8. **[The CMS](docs/CMS.md)** - optional: pages written as markdown files.
+9. **[Settings reference](docs/CONFIGURATION.md)** - every setting and secret.
+10. **[Troubleshooting](docs/TROUBLESHOOTING.md)** - when something doesn't work.
 
 ## Starting your next project from this one
 
@@ -69,7 +74,9 @@ Each new site gets its own copy:
    the databases. You can also do it directly: `./scripts/rename.sh RecipeBox`.
 3. If several projects will run on the same computer, give each one its own
    ports in `.env.local` (`DEV_WEB_PORT`, `DEV_API_PORT`, `DEV_DB_PORT`, `PROD_PORT`).
-4. Delete the example "Notes" feature once you've used it as a pattern
+4. Replace the home page, which shows the guide until you do
+   ([docs/DEVELOPING.md](docs/DEVELOPING.md#your-home-page)), and delete the
+   example "Notes" feature once you've used it as a pattern
    ([docs/DEVELOPING.md](docs/DEVELOPING.md#removing-the-example)).
 
 ## What's in the folder
@@ -79,7 +86,8 @@ client/              the website (Vue). Pages are in client/src/views/
 src/WebBase.Api/     the API (C#). Endpoints are in Controllers/
 tests/WebBase.Tests/ automated tests for the API
 ops/                 the production Dockerfile and database setup
-docs/                the guides above
+content/             pages for the optional CMS (markdown files)
+docs/                the guides above (also shown in the site at /docs)
 scripts/             helpers: tests, migrations, backups, cloud deploys
 compose.dev.yaml     what ./dev.sh runs
 compose.prod.yaml    what ./deploy.sh and ./tunnel.sh run

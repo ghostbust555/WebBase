@@ -15,8 +15,16 @@ const router = createRouter({
     { path: '/register', component: () => import('./views/RegisterView.vue') },
     { path: '/account', component: () => import('./views/AccountView.vue'), meta: { requiresAuth: true } },
     { path: '/notes', component: () => import('./views/NotesView.vue'), meta: { requiresAuth: true } },
-    { path: '/:pathMatch(.*)*', component: () => import('./views/NotFoundView.vue') }
-  ]
+    // The guides in docs/, readable in the browser.
+    { path: '/docs/:name?', component: () => import('./views/DocsView.vue') },
+    // Everything else: a CMS page from content/ if the CMS is on and has one,
+    // otherwise "page not found".
+    { path: '/:pathMatch(.*)*', component: () => import('./views/ContentView.vue') }
+  ],
+  // Back/forward returns to where you were; a new page starts at the top. A
+  // "#section" link is left to the page, which scrolls once its text is there
+  // (components/MarkdownView.vue).
+  scrollBehavior: (to, _from, saved) => saved ?? (to.hash ? false : { top: 0 })
 })
 
 router.beforeEach((to) => {
