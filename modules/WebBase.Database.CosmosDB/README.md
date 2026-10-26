@@ -48,23 +48,28 @@ Then set (in `compose.*.yaml`, or your cloud's settings):
 | `Database__Provider` | `cosmos` |
 | `Cosmos__ConnectionString` | from the Azure portal: your Cosmos account → *Keys* → *Primary connection string*. **A secret** |
 | `Cosmos__Database` | the database name, default `webbase` (created on first start) |
+| `Cosmos__DatabaseThroughput` | optional: RU/s shared by the whole database (400-1000 on the free tier). Leave empty for serverless |
 
 The Postgres module can stay in the app; it's simply not used while the
 provider is `cosmos`. To drop it: `./scripts/module.sh remove postgres`.
 
 ## The Cosmos account
 
-- **Pick "Serverless"** when creating the account (Azure portal → *Azure Cosmos
+- **On Azure, `scripts/cloud/azure.sh` can make the account and wire it up**:
+  `AZURE_DATABASE=cosmos` ([docs/AZURE.md](../../docs/AZURE.md#a-database-that-stays-free-cosmos-db)).
+  It uses the **free tier** (1000 RU/s and 25 GB, never expires, one account per
+  subscription), with the three containers sharing that throughput:
+  `Cosmos__DatabaseThroughput=1000`. Without that setting each container
+  reserves its own 400 RU/s, which is 1200 in all: over the free tier.
+- **By hand, pick "Serverless"** when creating the account (Azure portal → *Azure Cosmos
   DB* → *Create* → *Azure Cosmos DB for NoSQL* → Capacity mode: *Serverless*).
   You pay per request, which is close to nothing for a small site. With
   *provisioned throughput* instead, each of the three containers reserves
   400 RU/s by default, which costs money every hour whether anyone visits or not.
 - Turn on **continuous backup** (point-in-time restore). `scripts/backup.sh`
   is for PostgreSQL only.
-- On Azure Container Apps, store the connection string as a secret, as
-  `scripts/cloud/azure.sh` does for `Jwt__Key`. That script creates a
-  PostgreSQL server: skip it with `AZURE_DATABASE_URL` and change the
-  environment variables it sets, or create the app by hand.
+- On Azure Container Apps, the connection string belongs in the app's
+  secrets; `azure.sh` does that.
 - Without a computer of your own: `./scripts/test.sh` skips these tests
   (the emulator is too heavy to start on every run), so run them once with
   the steps below wherever Docker is available, before relying on a change.

@@ -16,10 +16,10 @@
 #
 # Cost, set by AZURE_TIER:
 #   free      (default) scales to zero, the smallest size, inside Container Apps' free
-#             monthly grant. The database is the smallest Burstable size, free for the
-#             first 12 months of a new Azure account (about $13/month after: or bring a
-#             free Neon database with AZURE_DATABASE_URL). The container registry has no
-#             free tier: Basic is about $5/month. Blob storage costs cents.
+#             monthly grant. The PostgreSQL database is the smallest Burstable size, free
+#             for the first 12 months of a new Azure account (about $13/month after).
+#             For a database that stays free: AZURE_DATABASE=cosmos (below). The container
+#             registry has no free tier: Basic is about $5/month. Blob storage costs cents.
 #   standard  always on (no cold starts), twice the size, up to 5 copies, and a General
 #             Purpose database. Roughly $150-200/month.
 #
@@ -27,7 +27,11 @@
 #   AZURE_TIER            free or standard                      default free
 #   AZURE_LOCATION        region                                default eastus
 #   AZURE_RESOURCE_GROUP  the folder everything is created in   default <name>-rg
-#   AZURE_DATABASE_URL    postgres://... to use your own database (e.g. a free Neon one)
+#   AZURE_DATABASE        postgres (default) or cosmos. Cosmos DB has a free tier that never
+#                         expires (1000 RU/s and 25 GB, one account per subscription). The app
+#                         must be built with it first: ./scripts/module.sh add cosmos. free tier =
+#                         that free account; standard = serverless (pay per use, cents at rest).
+#   AZURE_DATABASE_URL    postgres://... to use your own PostgreSQL (e.g. a free Neon one)
 #                         instead of creating Azure's. Kept in the app's secrets.
 #   APP_NAME, GOOGLE_CLIENT_ID, CMS_ENABLED, CMS_SOURCE, CMS_AZURE_CONTAINER...   the app's own
 #                         settings. Keep them in cloud.env (committed): every deploy applies them.
@@ -36,7 +40,7 @@
 
 case "${1:-}" in
   setup|deploy|url|logs|destroy) ;;
-  *) sed -n '2,34p' "$0"; exit 1 ;;
+  *) sed -n '2,38p' "$0"; exit 1 ;;
 esac
 need_cli az "Install it (https://aka.ms/installazurecli), or run this in Azure Cloud Shell (https://shell.azure.com)."
 az account show >/dev/null 2>&1 || die "Not logged in to Azure. Run: az login"
@@ -54,6 +58,9 @@ SUFFIX="$(printf '%06x' $(( $(printf '%s' "$(az account show --query id -o tsv)$
 REGISTRY="${SLUG//-/}${SUFFIX}"
 STORAGE="$(printf '%s' "${SLUG//-/}${SUFFIX}" | cut -c1-24)"
 PG_SERVER="${SLUG}-db-${SUFFIX}"
+COSMOS="${SLUG}-cosmos-${SUFFIX}"
+DATABASE="$(setting AZURE_DATABASE postgres)"
+case "$DATABASE" in postgres|cosmos) ;; *) die "AZURE_DATABASE is '${DATABASE}': use postgres or cosmos." ;; esac
 CMS_CONTAINER="$(setting CMS_AZURE_CONTAINER content)"
 
 if [ "$TIER" = free ]; then
@@ -95,8 +102,15 @@ env_args() {
   local line
   ENV_ARGS=()
   while IFS= read -r line; do ENV_ARGS+=("$line"); done < <(app_settings)
-  ENV_ARGS+=("Jwt__Key=secretref:jwt-key" "DATABASE_URL=secretref:database-url"
+  ENV_ARGS+=("Jwt__Key=secretref:jwt-key"
              "AZURE_CLIENT_ID=$(az identity show -g "$RG" -n "$IDENTITY" --query clientId -o tsv)")
+  if [ "$DATABASE" = cosmos ]; then
+    ENV_ARGS+=("Database__Provider=cosmos" "Cosmos__ConnectionString=secretref:database-url" "Cosmos__Database=${SLUG}")
+    # Free tier: the 1000 RU/s is shared by the three containers. Serverless has none to share.
+    if [ "$TIER" = free ] && [ "$(setting AZURE_COSMOS_SERVERLESS)" != true ]; then ENV_ARGS+=("Cosmos__DatabaseThroughput=1000"); fi
+  else
+    ENV_ARGS+=("DATABASE_URL=secretref:database-url")
+  fi
 }
 
 build_image() {
@@ -118,6 +132,26 @@ check_health() {
   say "Checking ${url}/api/health (a scaled-to-zero app needs a few seconds to start)"
   wait_for_url "${url}/api/health" 120 || die "The new version doesn't answer. See why: ./scripts/cloud/azure.sh logs"
   ok "It works: ${url}"
+}
+
+# Cosmos DB for NoSQL: one account with the free tier (1000 RU/s and 25 GB, never
+# expires, one per subscription), or a serverless one. Prints its connection string.
+cosmos_connection() {
+  local mode=(--enable-free-tier true) other
+  if [ "$TIER" != free ] || [ "$(setting AZURE_COSMOS_SERVERLESS)" = true ]; then
+    mode=(--capabilities EnableServerless)
+  fi
+  if ! exists az cosmosdb show -g "$RG" -n "$COSMOS"; then
+    if [ "${mode[0]}" = --enable-free-tier ]; then
+      other="$(az cosmosdb list --query "[?enableFreeTier].name | [0]" -o tsv 2>/dev/null || true)"
+      [ -z "$other" ] || die "This subscription's one free Cosmos DB account is already used by '${other}'. Use AZURE_COSMOS_SERVERLESS=true (pay per use, cents), or AZURE_DATABASE=postgres."
+    fi
+    say "Cosmos DB account ${COSMOS} (${mode[*]}), 3-5 minutes" >&2
+    az cosmosdb create -g "$RG" -n "$COSMOS" --locations "regionName=${LOCATION}" failoverPriority=0 isZoneRedundant=False \
+      --default-consistency-level Session "${mode[@]}" -o none >&2
+  fi
+  az cosmosdb keys list -g "$RG" -n "$COSMOS" --type connection-strings \
+    --query "connectionStrings[0].connectionString" -o tsv
 }
 
 # The database: your own (AZURE_DATABASE_URL), the one already set up, or a new
@@ -171,10 +205,15 @@ setup_cms_storage() {
     || die "Couldn't let the app read the container. Your account needs the Owner role on the resource group."
 }
 
+# A deploy from somewhere that doesn't have AZURE_DATABASE set must not turn a Cosmos DB
+# app into a PostgreSQL one: the app's own secret says which it is.
+if [ -z "$(setting AZURE_DATABASE)" ] && [[ "$(secret_get database-url)" == AccountEndpoint=* ]]; then DATABASE=cosmos; fi
+
 case "$1" in
   setup)
     say "Subscription: $(az account show --query name -o tsv). Tier: ${TIER}, region ${LOCATION}"
     # Settings that can't work stop here, before anything is created.
+    if [ "$DATABASE" = cosmos ]; then need_module cosmos WebBase.Database.CosmosDB "AZURE_DATABASE is cosmos"; fi
     if [ "$(setting CMS_SOURCE)" = azure ]; then need_module azure WebBase.FileStorage.AzureBlob "CMS_SOURCE is azure"; fi
     say "Turning on the Azure services this needs (the first time takes a few minutes)"
     for ns in Microsoft.App Microsoft.OperationalInsights Microsoft.ContainerRegistry Microsoft.DBforPostgreSQL \
@@ -196,8 +235,13 @@ case "$1" in
       --scope "$(az acr show -g "$RG" -n "$REGISTRY" --query id -o tsv)" -o none \
       || die "Couldn't let the app pull images. Your account needs the Owner role on the resource group."
 
-    DB_URL="$(database_url)"
-    case "$DB_URL" in postgres://*|postgresql://*) ;; *) die "The database setting doesn't start with postgres://." ;; esac
+    if [ "$DATABASE" = cosmos ]; then
+      DB_URL="$(cosmos_connection)"
+      case "$DB_URL" in AccountEndpoint=*) ;; *) die "Couldn't read the Cosmos DB account's connection string." ;; esac
+    else
+      DB_URL="$(database_url)"
+      case "$DB_URL" in postgres://*|postgresql://*) ;; *) die "The database setting doesn't start with postgres://." ;; esac
+    fi
     setup_cms_storage
     cms_secrets_notice
 
@@ -225,6 +269,7 @@ case "$1" in
     check_health
     if [ "$TIER" = free ]; then
       echo "    Free tier: the app sleeps when idle, so the first visit after a quiet spell takes a few seconds."
+      [ "$DATABASE" = cosmos ] && echo "    The database is on Cosmos DB's free tier: it never expires (one such account per subscription)."
       echo "    Not free: the container registry (about \$5/month). Set a budget alert: https://portal.azure.com/#view/Microsoft_Azure_CostManagement/Menu/~/budgets"
     fi
     echo "    Next time, just: ./scripts/cloud/azure.sh deploy"

@@ -18,13 +18,15 @@ Per month, as published in October 2026 (check [the current list](https://azure.
 | Service | Used for | Free? |
 |---|---|---|
 | **Container Apps** | The website and API | **Always free**: 180,000 vCPU-seconds, 360,000 GiB-seconds and 2 million requests per subscription. The free setup scales to zero when nobody visits |
-| **Database for PostgreSQL** | The data | **Free for the first 12 months** of a new Azure account: 750 hours of the smallest size (B1ms), 32 GB, 32 GB of backups. About $13/month after. For free *forever*, bring a [Neon](https://neon.tech) database instead: `AZURE_DATABASE_URL` |
+| **Cosmos DB** | The data, with `AZURE_DATABASE=cosmos` | **Always free, one account per subscription**: 1000 RU/s and 25 GB. [How to use it](#a-database-that-stays-free-cosmos-db) |
+| **Database for PostgreSQL** | The data (the default) | **Free for the first 12 months** of a new Azure account: 750 hours of the smallest size (B1ms), 32 GB, 32 GB of backups. About $13/month after. Or bring a free [Neon](https://neon.tech) database: `AZURE_DATABASE_URL` |
 | **Blob Storage** | The CMS's pages, if you use them | **Free for the first 12 months**: 5 GB (locally redundant, hot), 20,000 reads and 10,000 writes a month. Cents a month after, at this size |
 | **Outbound traffic** | Pages sent to visitors | The first 100 GB a month is free |
 | **Container Registry** | The app's images | **Not on the free lists I could find**: the Basic tier is about $5/month. It's the one cost the free setup can't avoid. If your Azure free-services page lists it, you're ahead |
 
-So the free setup costs about **$5/month**, and after the database's free
-year about $18, or $5 with a Neon database. Everything else is free. Azure
+So the free setup costs about **$5/month** with Cosmos DB (or Neon) as the
+database. With Azure's PostgreSQL it is $5 for the first year and about $18
+after. Everything else is free. Azure
 needs a card even for the free tier; a new account's trial credit is not
 charged unless you upgrade. **Set a budget alert** (below).
 
@@ -66,6 +68,38 @@ holding everything, so removing it removes all of it):
 
 You can run `setup` again at any time: it changes only what differs.
 
+## A database that stays free: Cosmos DB
+
+Azure's PostgreSQL is free for a year. **Cosmos DB's free tier never
+expires**: 1000 RU/s and 25 GB, plenty for a small site, for one account per
+subscription. This app has a Cosmos DB module ([DATABASE.md](DATABASE.md)),
+so:
+
+1. `./scripts/module.sh add cosmos` ([MODULES.md](MODULES.md)), commit and push.
+2. In `cloud.env`: `AZURE_DATABASE=cosmos`.
+3. In Cloud Shell: `git pull`, then `./scripts/cloud/azure.sh setup`. It
+   creates the free account (3-5 minutes, instead of PostgreSQL's 10) and
+   keeps its connection string as a secret of the app. The three containers
+   share the free 1000 RU/s.
+
+What to know before choosing it:
+
+- **It isn't PostgreSQL.** The app's data goes through the same stores
+  either way, but there are no migrations, `backup.sh` doesn't apply, and
+  reports or tools that expect SQL won't work. Cosmos DB has its own backups:
+  turn on *continuous backup* in the portal if the data matters.
+- **One free account per subscription.** If another account already uses it,
+  `setup` stops and says so. `AZURE_COSMOS_SERVERLESS=true` makes a
+  pay-per-use account instead (cents a month at this size). `AZURE_TIER=standard`
+  does that too.
+- **The connection string includes a key**, kept in the app's secrets.
+  (The CMS storage uses the identity instead: no key.)
+- Going over 1000 RU/s doesn't charge you: requests are slowed (429) instead,
+  since the throughput is a fixed amount.
+
+Switching an existing site's database means moving its data yourself
+([DATABASE.md](DATABASE.md)): choose before you have users.
+
 ## Free or standard
 
 `AZURE_TIER` (default `free`):
@@ -74,7 +108,8 @@ You can run `setup` again at any time: it changes only what differs.
 |---|---|---|
 | App size | 0.25 CPU, 0.5 GB | 0.5 CPU, 1 GB |
 | Copies | 0 to 2 (sleeps when idle) | 1 to 5 (always on, no cold starts) |
-| Database | smallest Burstable, 32 GB | General Purpose (2 vCores), 64 GB |
+| PostgreSQL | smallest Burstable, 32 GB | General Purpose (2 vCores), 64 GB |
+| Cosmos DB (`AZURE_DATABASE=cosmos`) | the free account | serverless, pay per use |
 | Roughly | $5/month (see above) | $150-200/month |
 
 Choose before the first `setup`, by putting `AZURE_TIER=standard` in

@@ -26,6 +26,22 @@ public class CosmosStoreTests : StoreContractTests
         });
     }
 
+    [Fact]
+    public async Task A_shared_throughput_goes_to_the_database_not_to_each_container()
+    {
+        if (string.IsNullOrWhiteSpace(Account)) Assert.Skip("TEST_COSMOS isn't set.");
+        var shared = $"shared_{Guid.NewGuid():N}";
+        using var client = new CosmosClient(Account, new CosmosClientOptions { ConnectionMode = ConnectionMode.Gateway, LimitToEndpoint = true });
+        try
+        {
+            await new CosmosDatabase(client, new CosmosSettings { DatabaseName = shared, DatabaseThroughput = 1000 }).PrepareAsync();
+            var database = client.GetDatabase(shared);
+            Assert.Equal(1000, await database.ReadThroughputAsync());
+            Assert.Null(await database.GetContainer(CosmosSettings.Notes).ReadThroughputAsync());
+        }
+        finally { try { await client.GetDatabase(shared).DeleteAsync(); } catch (CosmosException) { } }
+    }
+
     protected override async Task DropDatabaseAsync()
     {
         if (string.IsNullOrWhiteSpace(Account)) return;

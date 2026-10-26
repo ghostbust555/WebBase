@@ -26,7 +26,7 @@ billing to watch.
 | | Free setup | Standard setup | Files for the CMS |
 |---|---|---|---|
 | **Google Cloud** | Cloud Run + free Neon database: **$0** | Cloud Run always on + Cloud SQL: ~$35-45/month | Cloud Storage (`gcs`) |
-| **Azure** | Container Apps + PostgreSQL (free 12 months): ~**$5/month** | always on + General Purpose database: ~$150-200/month | Blob Storage (`azure`) |
+| **Azure** | Container Apps + PostgreSQL (free 12 months) or Cosmos DB (free forever): ~**$5/month** | always on + General Purpose database: ~$150-200/month | Blob Storage (`azure`) |
 | **AWS** | Lambda + free Neon database: **~$0** | ECS Express Mode + RDS: ~$40-70/month | S3 (`s3`) |
 
 Choose with `GCP_TIER`, `AZURE_TIER` or `AWS_TIER` (`free` by default,
@@ -54,7 +54,7 @@ Every option on this page does it that way:
 
 | Host | Managed PostgreSQL | Set up by |
 |---|---|---|
-| Azure | Azure Database for PostgreSQL (Flexible Server): free for a new account's first 12 months | `azure.sh setup` |
+| Azure | Azure Database for PostgreSQL (Flexible Server): free for a new account's first 12 months; or Cosmos DB, whose free tier never expires (`AZURE_DATABASE=cosmos`) | `azure.sh setup` |
 | AWS | Amazon RDS for PostgreSQL (`AWS_TIER=standard`); the free setup uses a free Neon database | `aws.sh setup` |
 | Google Cloud | Cloud SQL for PostgreSQL (or a free Neon database, [GOOGLE_CLOUD.md](GOOGLE_CLOUD.md)) | `gcp.sh setup` |
 | Render, Railway, DigitalOcean, Fly.io | the host's own PostgreSQL | a few clicks, below |
@@ -163,7 +163,8 @@ an Apple Silicon Mac.
 included. **Azure Database for PostgreSQL** (Flexible Server) holds the data.
 
 **The full guide is [AZURE.md](AZURE.md)**: what's free (Container Apps'
-monthly grant, the database for a new account's first year; the image
+monthly grant, the database for a new account's first year or Cosmos DB's
+free tier for good; the image
 registry is about $5/month), Azure Cloud Shell so nothing is installed, and
 Blob Storage for the CMS. In short:
 

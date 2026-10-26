@@ -20,7 +20,10 @@ public class CosmosDatabase(CosmosClient client, CosmosSettings settings) : IDat
 
     public async Task PrepareAsync(CancellationToken ct = default)
     {
-        Microsoft.Azure.Cosmos.Database db = await client.CreateDatabaseIfNotExistsAsync(settings.DatabaseName, cancellationToken: ct);
+        // With a shared throughput, the three containers split it: what Cosmos DB's free tier
+        // (1000 RU/s in all) needs. Without one, each container reserves its own 400 RU/s.
+        ThroughputProperties? shared = settings.DatabaseThroughput is { } ru ? ThroughputProperties.CreateManualThroughput(ru) : null;
+        Microsoft.Azure.Cosmos.Database db = await client.CreateDatabaseIfNotExistsAsync(settings.DatabaseName, shared, cancellationToken: ct);
         await db.CreateContainerIfNotExistsAsync(CosmosSettings.Users, "/id", cancellationToken: ct);
         await db.CreateContainerIfNotExistsAsync(CosmosSettings.Keys, "/id", cancellationToken: ct);
         await db.CreateContainerIfNotExistsAsync(CosmosSettings.Notes, "/userId", cancellationToken: ct);
@@ -44,12 +47,17 @@ public class CosmosSettings
 {
     public const string Users = "users", Keys = "keys", Notes = "notes";
     public string DatabaseName { get; init; } = "webbase";
+
+    /// <summary>RU/s shared by all containers, or null for serverless accounts and the emulator.</summary>
+    public int? DatabaseThroughput { get; init; }
 }
 
 /// <summary>
 /// Azure Cosmos DB for NoSQL: Database:Provider "cosmos". Settings:
 /// Cosmos:ConnectionString (required, a secret), Cosmos:Database (default
-/// "webbase"), Cosmos:Gateway - true only for the local emulator.
+/// "webbase"), Cosmos:DatabaseThroughput (RU/s for the whole database, 400-1000
+/// on the free tier; leave empty for serverless), Cosmos:Gateway - true only
+/// for the local emulator.
 /// </summary>
 public class CosmosModule : IDatabaseModule
 {
@@ -72,7 +80,11 @@ public class CosmosModule : IDatabaseModule
             // SDK 3.54 (emulator vnext-preview, October 2026), so ask for JSON text.
             HttpClientFactory = gateway ? () => new HttpClient(new TextOnly { InnerHandler = new HttpClientHandler() }) : null,
         }));
-        services.AddSingleton(new CosmosSettings { DatabaseName = config["Cosmos:Database"] ?? "webbase" });
+        services.AddSingleton(new CosmosSettings
+        {
+            DatabaseName = config["Cosmos:Database"] ?? "webbase",
+            DatabaseThroughput = config.GetValue<int?>("Cosmos:DatabaseThroughput"),
+        });
         services.AddScoped<IDatabase, CosmosDatabase>();
         services.AddScoped<IUserStore, CosmosUserStore>();
         services.AddScoped<INoteStore, CosmosNoteStore>();
