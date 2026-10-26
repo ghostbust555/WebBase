@@ -1,0 +1,89 @@
+# DEVELOPMENT: the stack you work on. Started by ./dev.sh.
+#
+# Three containers, all running your source code straight from this folder,
+# so saving a file is all it takes to see a change:
+#
+#   web  Vite dev server     http://localhost:5173   (the website, hot reload)
+#   api  dotnet watch        http://localhost:5000   (C#, rebuilt on save)
+#   db   PostgreSQL          localhost:5432          (data in .docker-data/dev-postgres)
+#
+# The browser only ever talks to `web`; it forwards /api/* to `api`.
+# Nothing here is reachable from the internet.
+name: webbase-dev
+
+services:
+  db:
+    image: postgres:18.6-alpine
+    environment:
+      POSTGRES_DB: webbase
+      POSTGRES_USER: webbase
+      # Development only, and only reachable from this computer.
+      POSTGRES_PASSWORD: webbase
+    volumes:
+      - ./.docker-data/dev-postgres:/var/lib/postgresql
+    ports:
+      # 127.0.0.1 = this computer only. Connect a database tool here if you like.
+      - "127.0.0.1:${DEV_DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U webbase -d webbase"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  api:
+    image: mcr.microsoft.com/dotnet/sdk:10.0
+    working_dir: /src/src/WebBase.Api
+    command: ["dotnet", "watch", "run", "--no-launch-profile", "--non-interactive"]
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      App__Environment: development
+      App__Name: ${APP_NAME:-WebBase}
+      App__Build: dev
+      ConnectionStrings__Default: "Host=db;Port=5432;Database=webbase;Username=webbase;Password=webbase"
+      # Empty is fine here: development falls back to a built-in key.
+      Jwt__Key: ${JWT_KEY:-}
+      Auth__Google__ClientId: ${GOOGLE_CLIENT_ID:-}
+      # Notice file changes made from outside the container (your editor).
+      DOTNET_USE_POLLING_FILE_WATCHER: "1"
+      DOTNET_WATCH_RESTART_ON_RUDE_EDIT: "1"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+    volumes:
+      - .:/src
+      # The container's own build output, kept apart from any build you do
+      # on your computer so the two never trip over each other.
+      - api-obj:/src/src/WebBase.Api/obj
+      - api-bin:/src/src/WebBase.Api/bin
+      - nuget:/root/.nuget/packages
+    ports:
+      - "127.0.0.1:${DEV_API_PORT:-5000}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    image: node:22-alpine
+    working_dir: /client
+    command: ["sh", "-c", "npm install --no-audit --no-fund && npm run dev"]
+    environment:
+      API_URL: http://api:8080
+      VITE_POLL: "1"
+    volumes:
+      - ./client:/client
+      - web-node-modules:/client/node_modules
+    ports:
+      # Every network interface, so a phone on the same Wi-Fi can open
+      # http://<this computer's name>:5173. Change to "127.0.0.1:..." to stop that.
+      - "${DEV_WEB_PORT:-5173}:5173"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  api-obj:
+  api-bin:
+  nuget:
+  web-node-modules:

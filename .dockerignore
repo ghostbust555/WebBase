@@ -1,0 +1,15 @@
+# What `docker build` never needs to see. Smaller and faster builds, and no
+# secrets or databases can end up inside an image by accident.
+.git
+.env
+.env.*
+!.env.example
+.docker-data
+backups
+**/bin
+**/obj
+**/node_modules
+client/dist
+tests
+docs
+*.md

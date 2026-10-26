@@ -1,0 +1,6 @@
+# Keep Unix line endings everywhere, even when cloned on Windows. The shell
+# scripts fail with "$'\r': command not found" otherwise.
+* text=auto eol=lf
+*.sh text eol=lf
+*.png binary
+*.ico binary

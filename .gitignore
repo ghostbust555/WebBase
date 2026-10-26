@@ -1,0 +1,30 @@
+# Secrets and per-machine settings. NEVER commit these.
+.env
+.env.local
+.env.*.local
+*client_secret*.json
+
+# Databases, tunnel state and backups belonging to the Docker environments.
+.docker-data/
+backups/
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Node
+node_modules/
+client/dist/
+*.tsbuildinfo
+
+# Editors and OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+*.log
