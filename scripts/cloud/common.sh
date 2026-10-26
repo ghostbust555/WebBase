@@ -44,11 +44,15 @@ tier() {
 # some clouds, Claude Code on the web) the scripts build in the cloud instead.
 can_build() { command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; }
 
-# The app must be built with a module before a setting can use it.
-# Usage: need_module <name as in module.sh> <project folder name> <setting that asks for it>
-need_module() {
-  grep -q "$2.csproj" "${API_DIR}/WebBase.Api.csproj" \
-    || die "$3, but the app isn't built with that module yet: ./scripts/module.sh add $1, then commit and push."
+# The modules the image is built with (docs/MODULES.md): the database a script
+# chose (DB_MODULE) and, for a CMS in a bucket, that storage. So choosing them
+# is a setting, not a code change. BUILD_MODULES overrides the whole list.
+build_modules() {
+  local explicit list; explicit="$(setting BUILD_MODULES)"
+  if [ -n "$explicit" ]; then echo "$explicit"; return; fi
+  list="${DB_MODULE:-postgres}"
+  case "$(setting CMS_SOURCE)" in s3|azure|gcs) list="$list $(setting CMS_SOURCE)" ;; esac
+  echo "$list"
 }
 
 # What the app is told about itself, as NAME=VALUE lines (empty ones left out):
@@ -73,7 +77,7 @@ build_and_push() {
   local image="$1" build="$2"
   say "Building ${image} for linux/amd64"
   docker build --platform linux/amd64 -f ops/Dockerfile \
-    --build-arg "BUILD_ID=${build}" --label "build=${build}" -t "$image" .
+    --build-arg "BUILD_ID=${build}" --build-arg "MODULES=$(build_modules)" --label "build=${build}" -t "$image" .
   say "Uploading ${image}"
   docker push "$image"
 }

@@ -121,7 +121,7 @@ from. The layout inside is the same everywhere: the files and folders of
 
 Every source but `files` is a **module**: its own project, with that cloud's
 library, which the app is only built with when you ask
-([MODULES.md](MODULES.md)). Add the one you need first, and commit:
+([MODULES.md](MODULES.md)). The cloud scripts build the app with the one `CMS_SOURCE` names, so in a cloud there is nothing to add. Elsewhere, add the one you need first, and commit:
 
 ```bash
 ./scripts/module.sh add s3      # or azure, or gcs

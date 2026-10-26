@@ -60,6 +60,10 @@ traps.
 - Prod = one image (`ops/Dockerfile`): the API serves the built SPA from wwwroot.
   Dev = three containers (`compose.dev.yaml`) running source with hot reload;
   Vite proxies `/api` to the API.
+- Cloud images are built with `--build-arg MODULES=...` (`build_modules` in common.sh: the
+  chosen database + `CMS_SOURCE`'s storage), which makes `module.sh set` run in ops/Dockerfile:
+  a module is a setting, not a code change. Postgres is a module like the others; Azure free
+  defaults to Cosmos (`AZURE_DATABASE`).
 - Cloud: `scripts/cloud/{gcp,azure,aws}.sh` each take `*_TIER=free|standard` (free stays
   inside the free tier; AWS free = Lambda via `ops/Dockerfile.lambda` + a Neon database).
   They keep secrets in the cloud itself (Secret Manager, Container App secrets,

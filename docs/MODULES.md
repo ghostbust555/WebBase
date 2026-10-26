@@ -20,12 +20,25 @@ disk (`files`, the CMS's default) is built in: it needs no package.
 Every module is compiled and tested by `./scripts/test.sh` whether the app
 uses it or not, so one you add later still works.
 
+**Postgres is a module like the others**: it's what the repository ships
+with (so `./dev.sh` has a database), but nothing in the app depends on it.
+An image can be built without it, and is, for Cosmos DB.
+
+**The cloud scripts choose modules for you.** They build the image with the
+database they set up and the storage `CMS_SOURCE` names
+(`docker build --build-arg MODULES="cosmos azure"`, which runs
+`module.sh set` inside the build), so using Cosmos DB or a bucket in a cloud
+is a setting in `cloud.env`, not a code change. `BUILD_MODULES` in
+`cloud.env` overrides the list. The steps below are for when you build
+the app yourself, or want the repository itself to change.
+
 ## Adding or removing one
 
 ```bash
 ./scripts/module.sh list           # which exist, which the app uses
 ./scripts/module.sh add gcs        # build the app with Google Cloud Storage
 ./scripts/module.sh remove cosmos  # and without one again
+./scripts/module.sh set cosmos azure  # exactly these (what the image build does)
 ```
 
 Adding is two edits, which you can also make by hand:

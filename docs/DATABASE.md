@@ -102,7 +102,7 @@ emulator, and the whole app (sign-up, sign-in, notes) runs on it. The app
 isn't built with it unless you ask, so projects that don't need it don't
 carry the Cosmos package. Its README has the details:
 
-1. `./scripts/module.sh add cosmos` (and `remove postgres`, if you like), and commit. On Azure, `AZURE_DATABASE=cosmos` then creates the account too, on Cosmos DB's free tier ([AZURE.md](AZURE.md#a-database-that-stays-free-cosmos-db)).
+1. `./scripts/module.sh add cosmos` (and `remove postgres`, if you like), and commit. On Azure you can skip this: the free setup uses Cosmos DB by default, builds the image with its module and creates the account, on Cosmos DB's free tier ([AZURE.md](AZURE.md#the-database-cosmos-db-or-postgresql)).
 2. Set `Database__Provider=cosmos` and `Cosmos__ConnectionString=...`.
 3. Run its contract tests against the Cosmos DB emulator (the module's README
    has the commands). `./scripts/test.sh` skips them, as it has no emulator.

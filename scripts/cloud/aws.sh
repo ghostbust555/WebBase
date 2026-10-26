@@ -59,6 +59,7 @@ TASK_ROLE="${SLUG}-ecs-task"
 DB_INSTANCE="${SLUG}-db"
 DB_SG="${SLUG}-db"
 SSM="/${SLUG}"
+export DB_MODULE=postgres   # what the image is built with (build_modules); the pages' storage is added by CMS_SOURCE
 
 # With CMS_SOURCE=s3, the pages are read from this region unless told otherwise.
 if [ "$(setting CMS_SOURCE)" = s3 ] && [ -z "$(setting CMS_S3_REGION)" ]; then export CMS_S3_REGION="$REGION"; fi
@@ -108,7 +109,8 @@ build_image() {
     # Lambda wants the app image plus its adapter (ops/Dockerfile.lambda), and
     # a plain image manifest, without the extra records newer Docker adds.
     say "Building the image for Lambda (linux/amd64)"
-    docker build --platform linux/amd64 -f ops/Dockerfile --build-arg "BUILD_ID=${BUILD}" -t "${REPO}-base:${BUILD}" .
+    docker build --platform linux/amd64 -f ops/Dockerfile --build-arg "BUILD_ID=${BUILD}" \
+      --build-arg "MODULES=$(build_modules)" -t "${REPO}-base:${BUILD}" .
     docker build --platform linux/amd64 --provenance=false -f ops/Dockerfile.lambda \
       --build-arg "BASE=${REPO}-base:${BUILD}" -t "$IMAGE" .
     say "Uploading it"
@@ -127,7 +129,6 @@ setup_cms_bucket() {
   [ "$(setting CMS_SOURCE)" = s3 ] || return 0
   local bucket; bucket="$(setting CMS_S3_BUCKET)"
   [ -n "$bucket" ] || die "CMS_SOURCE is s3, so set CMS_S3_BUCKET to a bucket name (unique across all of AWS)."
-  need_module s3 WebBase.FileStorage.S3 "CMS_SOURCE is s3"
   if [ -n "$(setting CMS_S3_SERVICE_URL)" ]; then warn "CMS_S3_SERVICE_URL is set, so the pages are somewhere else: no bucket is created."; return 0; fi
   say "S3 bucket ${bucket} for the CMS"
   if ! exists aws s3api head-bucket --bucket "$bucket"; then

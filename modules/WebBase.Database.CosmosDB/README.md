@@ -55,8 +55,8 @@ provider is `cosmos`. To drop it: `./scripts/module.sh remove postgres`.
 
 ## The Cosmos account
 
-- **On Azure, `scripts/cloud/azure.sh` can make the account and wire it up**:
-  `AZURE_DATABASE=cosmos` ([docs/AZURE.md](../../docs/AZURE.md#a-database-that-stays-free-cosmos-db)).
+- **On Azure, `scripts/cloud/azure.sh` makes the account and wires it up, and it is the
+  free setup's default** (`AZURE_DATABASE=cosmos` ([docs/AZURE.md](../../docs/AZURE.md#the-database-cosmos-db-or-postgresql)).
   It uses the **free tier** (1000 RU/s and 25 GB, never expires, one account per
   subscription), with the three containers sharing that throughput:
   `Cosmos__DatabaseThroughput=1000`. Without that setting each container

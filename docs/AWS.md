@@ -98,13 +98,13 @@ The [CMS](CMS.md)'s pages can come with the code (`content/`, deployed with
 each release: nothing to set up), or from a bucket, so they can change
 without a release:
 
-1. Build the app with that module: `./scripts/module.sh add s3`
-   ([MODULES.md](MODULES.md)), commit and push.
-2. In `cloud.env`: `CMS_ENABLED=true`, `CMS_SOURCE=s3`, and `CMS_S3_BUCKET=`
+1. In `cloud.env`: `CMS_ENABLED=true`, `CMS_SOURCE=s3`, and `CMS_S3_BUCKET=`
    a name no one else in the world has used, e.g. `my-site-123456-content`.
-3. In CloudShell: `git pull`, then `./scripts/cloud/aws.sh setup`. It makes the
-   private bucket and lets the app read it.
-4. Upload the pages: `aws s3 sync content s3://YOUR-BUCKET --delete`. Changes
+   Commit and push.
+2. In CloudShell: `git pull`, then `./scripts/cloud/aws.sh setup`. It makes the
+   private bucket, lets the app read it, and builds the app with the S3 module
+   ([MODULES.md](MODULES.md)): no code change.
+3. Upload the pages: `aws s3 sync content s3://YOUR-BUCKET --delete`. Changes
    show on the site within a minute.
 
 ## Floods of requests

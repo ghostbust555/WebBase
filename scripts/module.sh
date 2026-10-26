@@ -4,6 +4,7 @@
 #   ./scripts/module.sh list            which modules exist, and which the app uses
 #   ./scripts/module.sh add gcs         build the app with Google Cloud Storage
 #   ./scripts/module.sh remove cosmos   and without one again
+#   ./scripts/module.sh set cosmos azure   exactly these (the image build uses this: ops/Dockerfile)
 #
 # Modules: postgres, cosmos (databases); s3, azure, gcs (file storage).
 # Adding one makes two edits, which you can also make by hand: a
@@ -63,6 +64,18 @@ case "${1:-}" in
     fi
     ;;
 
+  set)
+    shift
+    [ $# -gt 0 ] || die "Which ones? ./scripts/module.sh set cosmos azure"
+    for name in "$@"; do info "$name" >/dev/null; done   # unknown names stop here
+    [[ " $* " == *" postgres "* || " $* " == *" cosmos "* ]] || die "The app needs a database module: postgres or cosmos."
+    for name in "$@"; do "$0" add "$name" >/dev/null; done
+    for name in postgres cosmos s3 azure gcs; do
+      [[ " $* " == *" $name "* ]] || "$0" remove "$name" >/dev/null
+    done
+    ok "The app is built with: $*"
+    ;;
+
   *)
-    sed -n '2,12p' "$0"; exit 1 ;;
+    sed -n '2,13p' "$0"; exit 1 ;;
 esac

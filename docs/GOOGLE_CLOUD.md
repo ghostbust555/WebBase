@@ -170,14 +170,13 @@ The [CMS](CMS.md)'s pages can come with the code (`content/`, deployed
 with each push: nothing to set up), or from a bucket, so they can change
 without a deploy:
 
-1. Build the app with that module: `./scripts/module.sh add gcs`
-   ([MODULES.md](MODULES.md)), and commit.
-2. In `cloud.env`: `CMS_ENABLED=true`, `CMS_SOURCE=gcs`, and
+1. In `cloud.env`: `CMS_ENABLED=true`, `CMS_SOURCE=gcs`, and
    `CMS_GCS_BUCKET=` a name no one else in the world has used, e.g.
    `my-site-123456-content`. Commit and push.
-3. Once, in Cloud Shell (after `git pull`): `./scripts/cloud/gcp.sh setup`.
-   It creates the bucket in your region and lets the app read it.
-4. Upload the pages: `gcloud storage rsync content gs://YOUR-BUCKET --recursive`.
+2. Once, in Cloud Shell (after `git pull`): `./scripts/cloud/gcp.sh setup`.
+   It creates the bucket in your region, lets the app read it, and builds the
+   app with the Cloud Storage module ([MODULES.md](MODULES.md)): no code change.
+3. Upload the pages: `gcloud storage rsync content gs://YOUR-BUCKET --recursive`.
    Changes show on the site within a minute.
 
 ## Removing it

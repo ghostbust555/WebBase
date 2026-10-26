@@ -26,7 +26,7 @@ billing to watch.
 | | Free setup | Standard setup | Files for the CMS |
 |---|---|---|---|
 | **Google Cloud** | Cloud Run + free Neon database: **$0** | Cloud Run always on + Cloud SQL: ~$35-45/month | Cloud Storage (`gcs`) |
-| **Azure** | Container Apps + PostgreSQL (free 12 months) or Cosmos DB (free forever): ~**$5/month** | always on + General Purpose database: ~$150-200/month | Blob Storage (`azure`) |
+| **Azure** | Container Apps + Cosmos DB (free forever; or PostgreSQL, free 12 months): ~**$5/month** | always on + General Purpose database: ~$150-200/month | Blob Storage (`azure`) |
 | **AWS** | Lambda + free Neon database: **~$0** | ECS Express Mode + RDS: ~$40-70/month | S3 (`s3`) |
 
 Choose with `GCP_TIER`, `AZURE_TIER` or `AWS_TIER` (`free` by default,
@@ -54,7 +54,7 @@ Every option on this page does it that way:
 
 | Host | Managed PostgreSQL | Set up by |
 |---|---|---|
-| Azure | Azure Database for PostgreSQL (Flexible Server): free for a new account's first 12 months; or Cosmos DB, whose free tier never expires (`AZURE_DATABASE=cosmos`) | `azure.sh setup` |
+| Azure | Azure Database for PostgreSQL (Flexible Server): free for a new account's first 12 months; or Cosmos DB, whose free tier never expires: the free setup's default (`AZURE_DATABASE`) | `azure.sh setup` |
 | AWS | Amazon RDS for PostgreSQL (`AWS_TIER=standard`); the free setup uses a free Neon database | `aws.sh setup` |
 | Google Cloud | Cloud SQL for PostgreSQL (or a free Neon database, [GOOGLE_CLOUD.md](GOOGLE_CLOUD.md)) | `gcp.sh setup` |
 | Render, Railway, DigitalOcean, Fly.io | the host's own PostgreSQL | a few clicks, below |
@@ -106,8 +106,8 @@ If you use the [CMS](CMS.md), its pages are built into the image from
 without a release, put them in the cloud's storage instead: an **S3 bucket**
 (AWS, or an S3-compatible one such as Cloudflare R2), an **Azure Blob
 container** or a **Google Cloud Storage bucket** ([CMS.md](CMS.md#where-the-content-lives)).
-Each is a module the app has to be built with first: `./scripts/module.sh add s3`
-(or `azure`, `gcs`), see [MODULES.md](MODULES.md).
+Each is a module of the app ([MODULES.md](MODULES.md)): the cloud scripts build
+the image with the one `CMS_SOURCE` names, so there is nothing to add to the code.
 
 The scripts below pass `CMS_ENABLED`, `CMS_SOURCE` and the bucket settings
 (from `.env.local`, or `cloud.env`) on to the app. `gcp.sh setup` also creates

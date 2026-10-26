@@ -16,23 +16,24 @@
 #
 # Cost, set by AZURE_TIER:
 #   free      (default) scales to zero, the smallest size, inside Container Apps' free
-#             monthly grant. The PostgreSQL database is the smallest Burstable size, free
-#             for the first 12 months of a new Azure account (about $13/month after).
-#             For a database that stays free: AZURE_DATABASE=cosmos (below). The container
-#             registry has no free tier: Basic is about $5/month. Blob storage costs cents.
+#             monthly grant, with the database on Cosmos DB's free tier, which never
+#             expires. The container registry has no free tier: Basic is about $5/month.
+#             Blob storage costs cents.
 #   standard  always on (no cold starts), twice the size, up to 5 copies, and a General
-#             Purpose database. Roughly $150-200/month.
+#             Purpose PostgreSQL database. Roughly $150-200/month.
 #
 # Settings (environment variables, or lines in .env.local; none are required):
 #   AZURE_TIER            free or standard                      default free
 #   AZURE_LOCATION        region                                default eastus
 #   AZURE_RESOURCE_GROUP  the folder everything is created in   default <name>-rg
-#   AZURE_DATABASE        postgres (default) or cosmos. Cosmos DB has a free tier that never
-#                         expires (1000 RU/s and 25 GB, one account per subscription). The app
-#                         must be built with it first: ./scripts/module.sh add cosmos. free tier =
-#                         that free account; standard = serverless (pay per use, cents at rest).
+#   AZURE_DATABASE        cosmos or postgres. Default: cosmos on the free tier, postgres on
+#                         standard or with AZURE_DATABASE_URL. Cosmos DB's free tier never expires
+#                         (1000 RU/s and 25 GB, one account per subscription); if that is taken,
+#                         AZURE_COSMOS_SERVERLESS=true pays per use instead (cents). PostgreSQL
+#                         on Azure is free only for a new account's first 12 months.
 #   AZURE_DATABASE_URL    postgres://... to use your own PostgreSQL (e.g. a free Neon one)
 #                         instead of creating Azure's. Kept in the app's secrets.
+# The image is built with the database's module and the CMS storage's: nothing to add to the code.
 #   APP_NAME, GOOGLE_CLIENT_ID, CMS_ENABLED, CMS_SOURCE, CMS_AZURE_CONTAINER...   the app's own
 #                         settings. Keep them in cloud.env (committed): every deploy applies them.
 #                         CMS_SOURCE=azure makes a storage account and container for the pages.
@@ -40,7 +41,7 @@
 
 case "${1:-}" in
   setup|deploy|url|logs|destroy) ;;
-  *) sed -n '2,38p' "$0"; exit 1 ;;
+  *) sed -n '2,39p' "$0"; exit 1 ;;
 esac
 need_cli az "Install it (https://aka.ms/installazurecli), or run this in Azure Cloud Shell (https://shell.azure.com)."
 az account show >/dev/null 2>&1 || die "Not logged in to Azure. Run: az login"
@@ -59,8 +60,12 @@ REGISTRY="${SLUG//-/}${SUFFIX}"
 STORAGE="$(printf '%s' "${SLUG//-/}${SUFFIX}" | cut -c1-24)"
 PG_SERVER="${SLUG}-db-${SUFFIX}"
 COSMOS="${SLUG}-cosmos-${SUFFIX}"
-DATABASE="$(setting AZURE_DATABASE postgres)"
+# Cosmos DB for the free tier (its free account never expires; PostgreSQL's does
+# after a year), PostgreSQL for standard, or whenever you bring a PostgreSQL URL.
+if [ -n "$(setting AZURE_DATABASE_URL)" ] || [ "$TIER" = standard ]; then DEFAULT_DATABASE=postgres; else DEFAULT_DATABASE=cosmos; fi
+DATABASE="$(setting AZURE_DATABASE "$DEFAULT_DATABASE")"
 case "$DATABASE" in postgres|cosmos) ;; *) die "AZURE_DATABASE is '${DATABASE}': use postgres or cosmos." ;; esac
+export DB_MODULE="$DATABASE"
 CMS_CONTAINER="$(setting CMS_AZURE_CONTAINER content)"
 
 if [ "$TIER" = free ]; then
@@ -122,7 +127,7 @@ build_image() {
   else
     say "Building ${IMAGE} in Azure (no Docker here), 3-6 minutes"
     az acr build -r "$REGISTRY" -t "${APP}:${BUILD}" -f ops/Dockerfile --platform linux/amd64 \
-      --build-arg "BUILD_ID=${BUILD}" . \
+      --build-arg "BUILD_ID=${BUILD}" --build-arg "MODULES=$(build_modules)" . \
       || die "Azure couldn't build it. Some subscriptions (free trials, for one) may not be allowed to use Azure's builders: run this where Docker is installed instead."
   fi
 }
@@ -186,7 +191,6 @@ database_url() {
 # identity and by no one else.
 setup_cms_storage() {
   [ "$(setting CMS_SOURCE)" = azure ] || return 0
-  need_module azure WebBase.FileStorage.AzureBlob "CMS_SOURCE is azure"
   case "$(setting CMS_AZURE_CONTAINER_URL)" in
     "https://${STORAGE}.blob.core.windows.net/"*) ;;
     *) warn "CMS_AZURE_CONTAINER_URL points at storage this script didn't make, so none is created."; return 0 ;;
@@ -205,16 +209,19 @@ setup_cms_storage() {
     || die "Couldn't let the app read the container. Your account needs the Owner role on the resource group."
 }
 
-# A deploy from somewhere that doesn't have AZURE_DATABASE set must not turn a Cosmos DB
-# app into a PostgreSQL one: the app's own secret says which it is.
-if [ -z "$(setting AZURE_DATABASE)" ] && [[ "$(secret_get database-url)" == AccountEndpoint=* ]]; then DATABASE=cosmos; fi
+# A deploy from somewhere that doesn't have AZURE_DATABASE set must not change an
+# existing app's database: its own secret says which one it has.
+if [ -z "$(setting AZURE_DATABASE)" ]; then
+  case "$(secret_get database-url)" in
+    AccountEndpoint=*) DATABASE=cosmos ;;
+    postgres://*|postgresql://*) DATABASE=postgres ;;
+  esac
+  export DB_MODULE="$DATABASE"
+fi
 
 case "$1" in
   setup)
     say "Subscription: $(az account show --query name -o tsv). Tier: ${TIER}, region ${LOCATION}"
-    # Settings that can't work stop here, before anything is created.
-    if [ "$DATABASE" = cosmos ]; then need_module cosmos WebBase.Database.CosmosDB "AZURE_DATABASE is cosmos"; fi
-    if [ "$(setting CMS_SOURCE)" = azure ]; then need_module azure WebBase.FileStorage.AzureBlob "CMS_SOURCE is azure"; fi
     say "Turning on the Azure services this needs (the first time takes a few minutes)"
     for ns in Microsoft.App Microsoft.OperationalInsights Microsoft.ContainerRegistry Microsoft.DBforPostgreSQL \
               Microsoft.ManagedIdentity Microsoft.Storage; do

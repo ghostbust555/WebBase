@@ -32,6 +32,7 @@ PROJECT="$(setting GCP_PROJECT "$(gcloud config get-value project 2>/dev/null)")
 REGION="$(setting GCP_REGION us-central1)"
 TIER="$(tier GCP_TIER)"
 SERVICE="${SLUG}"
+export DB_MODULE=postgres   # what the image is built with (build_modules); the pages' storage is added by CMS_SOURCE
 REPO="${SLUG}"
 SQL_INSTANCE="${SLUG}-db"
 REGISTRY="${REGION}-docker.pkg.dev/${PROJECT}/${REPO}"
@@ -166,8 +167,6 @@ setup_cms_bucket() {
   [ "$(setting CMS_SOURCE)" = gcs ] || return 0
   local bucket; bucket="$(setting CMS_GCS_BUCKET)"
   [ -n "$bucket" ] || die "CMS_SOURCE is gcs, so set CMS_GCS_BUCKET to a bucket name (unique across all of Google)."
-  grep -q 'WebBase.FileStorage.GoogleCloud.csproj' "${API_DIR}/WebBase.Api.csproj" \
-    || die "CMS_SOURCE is gcs, but the app isn't built with that module yet: ./scripts/module.sh add gcs, then commit and push."
   say "Bucket gs://${bucket} for the CMS"
   exists gcloud storage buckets describe "gs://${bucket}" \
     || gcloud storage buckets create "gs://${bucket}" --location "$REGION" \

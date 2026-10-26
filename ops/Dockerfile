@@ -28,6 +28,12 @@ COPY Directory.Build.props ./
 # into it (docs/MODULES.md).
 COPY src/ src/
 COPY modules/ modules/
+# Which modules to build the app with: a space-separated list (postgres cosmos
+# s3 azure gcs). Empty = whatever WebBase.Api.csproj references. The cloud
+# scripts pass this, so choosing a database or a bucket needs no code change.
+COPY scripts/lib.sh scripts/module.sh scripts/
+ARG MODULES=""
+RUN if [ -n "$MODULES" ]; then ./scripts/module.sh set $MODULES; fi
 # Downloaded packages are kept between builds on this machine.
 RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
     dotnet publish src/WebBase.Api/WebBase.Api.csproj -c Release -o /app
