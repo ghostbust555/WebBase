@@ -24,7 +24,7 @@
 #
 # Settings (environment variables, or lines in .env.local; none are required):
 #   AZURE_TIER            free or standard                      default free
-#   AZURE_LOCATION        region                                default eastus
+#   AZURE_LOCATION        region                                default eastus2 (East US 2)
 #   AZURE_RESOURCE_GROUP  the folder everything is created in   default <name>-rg
 #   AZURE_DATABASE        cosmos or postgres. Default: cosmos on the free tier, postgres on
 #                         standard or with AZURE_DATABASE_URL. Cosmos DB's free tier never expires
@@ -47,7 +47,7 @@ need_cli az "Install it (https://aka.ms/installazurecli), or run this in Azure C
 az account show >/dev/null 2>&1 || die "Not logged in to Azure. Run: az login"
 
 TIER="$(tier AZURE_TIER)"
-LOCATION="$(setting AZURE_LOCATION eastus)"
+LOCATION="$(setting AZURE_LOCATION eastus2)"
 RG="$(setting AZURE_RESOURCE_GROUP "${SLUG}-rg")"
 APP="${SLUG}"
 APP_ENV="${SLUG}-env"
