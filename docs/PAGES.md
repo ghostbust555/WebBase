@@ -115,6 +115,9 @@ removing an author never removes their pages).
   a list is a single-partition query. The unique key can only be set when a container
   is made; this one is new, so there is nothing to migrate. It passes the store contract
   against the emulator ([the module's README](../modules/WebBase.Database.CosmosDB/README.md)).
+- **Firestore**: a `pages` collection, the path kept unique by a document in `keys`
+  written in the same transaction as the page
+  ([the module's README](../modules/WebBase.Database.Firestore/README.md)).
 
 ## Where it lives in the code
 
@@ -124,6 +127,7 @@ removing an author never removes their pages).
 | The store contract | `src/WebBase.Core/Data/IPageStore.cs`; no owner id, on purpose ([AUTHORS.md](AUTHORS.md#guarding-your-own-features)) |
 | PostgreSQL | `modules/WebBase.Database.Postgres/PostgresPageStore.cs`, `Pages` in `AppDbContext.cs`, the `AddPages` migration |
 | Cosmos DB | `modules/WebBase.Database.CosmosDB/CosmosPageStore.cs`, the container in `CosmosDatabase.cs` |
+| Firestore | `modules/WebBase.Database.Firestore/FirestorePageStore.cs` |
 | In-memory (tests) | `InMemoryPageStore` in `tests/WebBase.Testing/InMemory/InMemoryDatabase.cs` |
 | The rules | `src/WebBase.Api/Pages/PageRules.cs` |
 | The endpoints | `src/WebBase.Api/Controllers/PagesController.cs` (public), `PageEditorController.cs` (authors); shapes in `Contracts/PageContracts.cs` |

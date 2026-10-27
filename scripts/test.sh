@@ -34,6 +34,11 @@ if [ "$(run_mode)" = host ]; then
     warn "TEST_POSTGRES isn't set, so the Postgres module tests are skipped. ./setupenvironment.sh sets it up (needs PostgreSQL)."
   fi
   warn "The S3, Azure Blob and Google Cloud Storage module tests need their Docker stand-ins and are skipped here."
+  if [ -n "${TEST_FIRESTORE:-}" ]; then
+    ok "The Firestore module tests run, against the emulator at ${TEST_FIRESTORE}"
+  else
+    warn "TEST_FIRESTORE isn't set, so the Firestore module tests are skipped (modules/WebBase.Database.Firestore/README.md: start its emulator)."
+  fi
 
   say "C# tests"
   DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 dotnet test WebBase.slnx --nologo
@@ -54,7 +59,7 @@ need_docker
 #   s3mock           an S3 stand-in, for WebBase.FileStorage.S3
 #   Azurite          Microsoft's Azure Storage emulator, for WebBase.FileStorage.AzureBlob
 #   fake-gcs-server  a Google Cloud Storage stand-in, for WebBase.FileStorage.GoogleCloud
-# (Cosmos DB's emulator is too heavy to start every time: its README says how.)
+# (The Cosmos DB and Firestore emulators aren't started here: each module's README says how.)
 NET="${SLUG}-test-$$"
 DB="${SLUG}-test-db-$$"
 S3="${SLUG}-test-s3-$$"

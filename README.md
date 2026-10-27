@@ -8,7 +8,7 @@ grow into whatever you're building.
 |---|---|
 | **Website** | [Vue 3](https://vuejs.org) + TypeScript, built with [Vite](https://vite.dev) - `client/`. The API's types are generated from the C#, so the two can't drift apart |
 | **API** | C# / [ASP.NET Core 10](https://learn.microsoft.com/aspnet/core) - `src/WebBase.Api/` |
-| **Database** | [PostgreSQL 18](https://www.postgresql.org), via Entity Framework Core, behind swappable stores (a Cosmos DB module is included, used only if you add it). Managed Postgres recommended for production |
+| **Database** | [PostgreSQL 18](https://www.postgresql.org), via Entity Framework Core, behind swappable stores (Cosmos DB and Firestore modules are included, used only if you add them; Google Cloud's free setup uses Firestore). Managed Postgres recommended for production |
 | **Sign-in** | Email + password built in; "Sign in with Google" switched on by one setting |
 | **Authors and pages** | The first account is an *author*; authors write and publish pages in the browser (markdown with a live preview) and manage who else is an author |
 | **Content** | Optional CMS: markdown files become pages, and a `theme.css` sets the colours. Kept in `content/`, an S3 bucket or Azure Blob Storage; off until switched on |
@@ -52,7 +52,7 @@ Never used a terminal, or don't have Docker yet? Start with
 | Check a running site actually works | `./scripts/smoke.sh <address>` |
 | Deploy to Google Cloud Run, free, from GitHub on every push | [docs/GOOGLE_CLOUD.md](docs/GOOGLE_CLOUD.md): a browser is all you need |
 | Deploy to Azure or AWS, free setup or always-on | `./scripts/cloud/azure.sh setup` / `aws.sh setup` - see [docs/AZURE.md](docs/AZURE.md), [docs/AWS.md](docs/AWS.md) |
-| Use Cosmos DB, or S3 / Azure / Google storage for the CMS | `./scripts/module.sh add <name>` - see [docs/MODULES.md](docs/MODULES.md) |
+| Use Cosmos DB or Firestore, or S3 / Azure / Google storage for the CMS | `./scripts/module.sh add <name>` - see [docs/MODULES.md](docs/MODULES.md) |
 
 ## The guides
 

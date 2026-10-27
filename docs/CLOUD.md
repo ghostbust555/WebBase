@@ -25,7 +25,7 @@ billing to watch.
 
 | | Free setup | Standard setup | Files for the CMS |
 |---|---|---|---|
-| **Google Cloud** | Cloud Run + free Neon database: **$0** | Cloud Run always on + Cloud SQL: ~$35-45/month | Cloud Storage (`gcs`) |
+| **Google Cloud** | Cloud Run + Firestore (or a free Neon PostgreSQL): **$0** | Cloud Run always on + Cloud SQL: ~$35-45/month | Cloud Storage (`gcs`) |
 | **Azure** | Container Apps + Cosmos DB (free forever; or PostgreSQL, free 12 months): ~**$5/month** | always on + General Purpose database: ~$150-200/month | Blob Storage (`azure`) |
 | **AWS** | Lambda + free Neon database: **~$0** | ECS Express Mode + RDS: ~$40-70/month | S3 (`s3`) |
 

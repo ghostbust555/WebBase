@@ -10,7 +10,7 @@ the code yourself or have Claude Code on the web do it
 About 30 minutes, once. This page covers:
 
 - [What's free, and what isn't](#whats-free-and-what-isnt)
-- [Step by step](#step-by-step): a Google Cloud project, a free database, one command, and connecting GitHub
+- [Step by step](#step-by-step): a Google Cloud project, one command, and connecting GitHub
 - [Working from Claude Code on the web](#working-from-claude-code-on-the-web)
 - [Changing settings](#changing-settings), [the CMS in a bucket](#the-cms-in-a-cloud-storage-bucket), [removing it](#removing-it), [if something goes wrong](#if-something-goes-wrong)
 
@@ -24,12 +24,17 @@ check [the current list](https://cloud.google.com/free/docs/free-cloud-features)
 | **Cloud Run** | The website and API | 2 million requests, 180,000 vCPU-seconds, 360,000 GB-seconds of memory, 1 GB of traffic out of North America |
 | **Artifact Registry** | The app's images | 0.5 GB stored. Setup keeps only the last 3 releases |
 | **Secret Manager** | The sign-in key and database password | 6 secret versions, 10,000 reads. Setup keeps one version of each |
+| **Firestore** | The database: accounts, pages, everything the app stores | 1 GiB stored; 50,000 reads, 20,000 writes and 20,000 deletes a day (the project's `(default)` database) |
 | **Cloud Storage** | The CMS's pages, if you put them in a bucket | 5 GB in `us-central1`, `us-east1` or `us-west1` |
 
-The database isn't Google's: Google's own (Cloud SQL) has no free tier and
-costs about $10/month. Instead, a free PostgreSQL from **[Neon](https://neon.tech)**
-(or [Supabase](https://supabase.com)) works fine for a small site. You can
-switch to Cloud SQL later.
+The database is **Firestore**, the one behind Firebase: free within those daily
+quotas, nothing to sign up for, and no password: the app signs in as its own
+service account. Setup makes it.
+
+Prefer PostgreSQL? Google's own (Cloud SQL) has no free tier and costs about
+$10/month, but a free PostgreSQL from **[Neon](https://neon.tech)** (or
+[Supabase](https://supabase.com)) works fine for a small site
+([below](#postgresql-instead-of-firestore)).
 
 What "small" means: the app stops when nobody visits and starts again on the
 next visit, so it uses almost nothing while idle. **The first visit after a
@@ -60,16 +65,11 @@ You need a Google account, and a GitHub repository with this code in it
    **Create budget**, for this project, amount **$1**, with the email alerts
    it suggests.
 
-### 2. A free database
+### 2. The database: nothing to do
 
-1. Sign up at <https://neon.tech> and create a project. Pick the region
-   nearest your Google region (`us-central1` is Iowa: a US East region is close).
-2. On the project's dashboard, press **Connect**, turn **Connection pooling
-   off**, and copy the connection string. It looks like
-   `postgresql://user:password@ep-....neon.tech/neondb?sslmode=require`.
-
-That string is a password: you'll paste it once, in step 3, and it's kept in
-Google's Secret Manager after that.
+Setup makes a **Firestore** database in your project. (If you'd rather have
+PostgreSQL, get a free one from Neon first: [PostgreSQL instead of
+Firestore](#postgresql-instead-of-firestore).)
 
 ### 3. Set it up, from Cloud Shell
 
@@ -87,8 +87,7 @@ gcloud config set project YOUR-PROJECT-ID
 - A **private** repository? GitHub asks for a username and password; the
   password is a token: <https://github.com/settings/personal-access-tokens> →
   *Generate new token*, only this repository, **Contents: Read-only**.
-- When it asks for the **connection string**, paste the one from step 2. It
-  isn't shown as you paste.
+- It makes the Firestore database in your region; that location is permanent.
 
 It turns on the services it needs, creates an image repository, a service
 account for the app (allowed to read its own secrets and nothing else), and
@@ -156,13 +155,31 @@ long. Details and limits: [CLOUD.md](CLOUD.md#floods-of-requests-and-your-bill).
 | What | Where | Then |
 |---|---|---|
 | The site's name, Google sign-in's client id, the CMS | `cloud.env`, committed. Public settings only: the scripts refuse to run with a secret in it | Push. The deploy applies it |
-| The database | Cloud Shell: `GCP_DATABASE_URL='postgres://...' ./scripts/cloud/gcp.sh setup` | Applies at once |
-| Cloud SQL instead of Neon (about $10/month) | Cloud Shell: `GCP_CLOUD_SQL=true ./scripts/cloud/gcp.sh setup`. Starts with an empty database | Applies at once |
+| PostgreSQL instead of Firestore | Cloud Shell: `GCP_DATABASE_URL='postgres://...' ./scripts/cloud/gcp.sh setup` ([below](#postgresql-instead-of-firestore)). Starts with an empty database | Applies at once |
+| Cloud SQL (about $10/month) | Cloud Shell: `GCP_CLOUD_SQL=true ./scripts/cloud/gcp.sh setup`. Starts with an empty database | Applies at once |
 | Always on, bigger, with Cloud SQL (about $35-45/month) | `GCP_TIER=standard` in `cloud.env`, then `setup` in Cloud Shell: one copy always running (no cold starts), up to 10, 1 GB | Applies at once |
 | Region | `GCP_REGION=...` for `setup` and in the GitHub variable. Changing it later means a new service: set it up fresh | |
 
 Google sign-in also needs your `run.app` address among the client's allowed
 origins ([GOOGLE_SIGNIN.md](GOOGLE_SIGNIN.md)).
+
+## PostgreSQL instead of Firestore
+
+The app runs the same on either. PostgreSQL is what it uses everywhere else
+(your computer, `./deploy.sh`), so pick it if you want the same database
+there and here:
+
+1. Sign up at <https://neon.tech> and create a project, in a US East region
+   (near `us-central1`).
+2. Its dashboard → **Connect**, turn **Connection pooling off**, and copy the
+   connection string (`postgresql://user:password@ep-....neon.tech/neondb?sslmode=require`).
+   It's a password: keep it out of chats and files.
+3. In Cloud Shell: `GCP_DATABASE=postgres ./scripts/cloud/gcp.sh setup`, and
+   paste it when asked (it isn't shown; it's kept in Secret Manager).
+
+A site set up with PostgreSQL stays on it: running `setup` again, or a deploy,
+never switches its database. Switching either way starts with an empty
+database; nothing is copied.
 
 ## The CMS in a Cloud Storage bucket
 
@@ -183,7 +200,8 @@ without a deploy:
 
 `./scripts/cloud/gcp.sh destroy` in Cloud Shell deletes the service, its
 images, secrets and service accounts, and the GitHub connection. It doesn't
-touch a CMS bucket or your Neon database: delete those yourself. To be sure
+touch a CMS bucket, the Firestore database or a Neon database: delete those
+yourself (Firestore: `gcloud firestore databases delete --database='(default)'`). To be sure
 nothing is left, delete the whole project:
 <https://console.cloud.google.com/iam-admin/settings> → **Shut down**.
 
@@ -194,7 +212,9 @@ nothing is left, delete the whole project:
 | `setup` stops at "allow unauthenticated" or "allUsers" | Your Google account belongs to an organization whose policy forbids public services. Use a project outside it, or ask its admin |
 | The deploy workflow says *Permission denied* or *Unable to acquire impersonated credentials* | The repository's name or variables don't match. Run `./scripts/cloud/gcp.sh github` again and compare the four values |
 | The deploy never starts | The Tests workflow must pass on `main` first, and the four variables must be set. Actions → *Deploy to Google Cloud* shows whether it was skipped |
-| "doesn't answer" after a deploy | `./scripts/cloud/gcp.sh logs` shows the app's own error, often a database string that's wrong or has pooling on |
+| "doesn't answer" after a deploy | `./scripts/cloud/gcp.sh logs` shows the app's own error. With PostgreSQL, often a database string that's wrong or has pooling on |
+| `setup` says the Firestore database is in Datastore mode | That project's Firestore was made for something else and can't change mode. Use a new project, or `GCP_DATABASE=postgres` |
+| *PERMISSION_DENIED* from Firestore in the logs | The app's account lost `roles/datastore.user`: run `setup` again |
 | The site is slow on the first visit | It was idle and is starting up: a few seconds, then normal |
 
 More in [TROUBLESHOOTING.md](TROUBLESHOOTING.md). For Cloud SQL, your own

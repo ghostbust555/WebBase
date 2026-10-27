@@ -76,6 +76,8 @@ the database directly, once:
   connection string).
 - **Cosmos DB**: in the portal's *Data Explorer*, open the `users` container, edit
   your document and set `"isAuthor": true`.
+- **Firestore**: in the Google Cloud console's *Firestore* page, open the `users`
+  collection, find the document with your `email`, and set `isAuthor` to `true`.
 
 Or, with Google sign-in on, set `AUTHOR_EMAILS` to your address and sign in with
 Google. Then remove the stranger on the Authors page.

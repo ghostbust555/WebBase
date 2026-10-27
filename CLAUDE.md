@@ -17,7 +17,7 @@ traps.
   Namespaces `WebBase.Models`, `WebBase.Data`, `WebBase.FileStorage`, `WebBase.Modules`.
 - `modules/`: every external dependency is its own project, referenced by the
   Api **only if requested**: `WebBase.Database.Postgres` (default; EF Core +
-  Npgsql, `AppDbContext`, `Migrations/`), `WebBase.Database.CosmosDB`,
+  Npgsql, `AppDbContext`, `Migrations/`), `WebBase.Database.CosmosDB`, `WebBase.Database.Firestore`,
   `WebBase.FileStorage.S3`, `.AzureBlob`, `.GoogleCloud`. The Api lists the ones
   it has in `src/WebBase.Api/Modules.cs` and `<ItemGroup Label="Modules">` of its
   csproj; `./scripts/module.sh add|remove|list <name>` edits both (markers
@@ -34,7 +34,8 @@ traps.
   contract against a real server that `scripts/test.sh` starts (Postgres,
   S3Mock, Azurite, fake-gcs-server: `TEST_POSTGRES`, `TEST_S3_URL`,
   `TEST_AZURE_BLOB`, `TEST_GCS_URL`); skipped without it. Cosmos needs its
-  emulator (`TEST_COSMOS`), which test.sh doesn't start.
+  emulator (`TEST_COSMOS`), which test.sh doesn't start; so does Firestore (`TEST_FIRESTORE`,
+  host:port of its Java emulator, runs without Docker: the module's README).
 - **Authors** (docs/AUTHORS.md): `User.IsAuthor`. The first account ever created is an author
   (`AuthService`: `IUserStore.AnyAsync()`; a tiny race between two simultaneous first sign-ups is
   accepted and documented), and so is a *Google-verified* email in `Auth:AuthorEmails` (never a
@@ -43,7 +44,7 @@ traps.
   token, so revoking is immediate; 401 signed out, 403 `{error}` otherwise. `/api/authors` lists,
   adds (an existing account, by email) and removes (never yourself, so one always remains).
   Client: `meta: { requiresAuthor: true }` in `router.ts`, `auth.user?.isAuthor` for links.
-- **Pages written in the browser** (docs/PAGES.md): `Page` + `IPageStore` (Postgres, Cosmos, in-memory),
+- **Pages written in the browser** (docs/PAGES.md): `Page` + `IPageStore` (Postgres, Cosmos, Firestore, in-memory),
   public `/api/pages/menu` and `/published?path=`, authors' `/api/editor/pages` (CRUD). Rules in
   `Pages/PageRules.cs`: limits, address words, `Reserved` first words (**add a word when you add a
   client route; a test compares it with `router.ts`**), and `MaxBody` kept under `Abuse:MaxBodyKb`
@@ -78,7 +79,11 @@ traps.
 - Cloud images are built with `--build-arg MODULES=...` (`build_modules` in common.sh: the
   chosen database + `CMS_SOURCE`'s storage), which makes `module.sh set` run in ops/Dockerfile:
   a module is a setting, not a code change. Postgres is a module like the others; Azure free
-  defaults to Cosmos (`AZURE_DATABASE`).
+  defaults to Cosmos (`AZURE_DATABASE`); Google Cloud free defaults to Firestore for a new site
+  (`GCP_DATABASE`; `pick_database` in gcp.sh: a site with a Postgres secret stays on Postgres, and
+  `deploy` reads `Database__Provider` from the live service, never switching). Firestore needs no
+  secret: Cloud Run's service account gets `roles/datastore.user`. Firestore uniqueness is a
+  transaction over `keys` documents (hash ids); per-user data lives in `users/{id}/<collection>`.
 - Cloud: `scripts/cloud/{gcp,azure,aws}.sh` each take `*_TIER=free|standard` (free stays
   inside the free tier; AWS free = Lambda via `ops/Dockerfile.lambda` + a Neon database).
   They keep secrets in the cloud itself (Secret Manager, Container App secrets,

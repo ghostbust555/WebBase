@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- An optional database module: Google Cloud Firestore (Native mode), the
+       database behind Firebase. Not part of the app until referenced from
+       WebBase.Api; README.md has the steps. -->
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\..\src\WebBase.Core\WebBase.Core.csproj" />
+    <PackageReference Include="Google.Cloud.Firestore" Version="4.6.0" />
+  </ItemGroup>
+
+</Project>

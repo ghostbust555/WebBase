@@ -42,6 +42,7 @@ explained.
 | `PROD_PORT` | prod | Production's port on this computer, default 8080 |
 | `AZURE_DATABASE` | cloud scripts | `cosmos` (the Azure free setup's default; its free tier never expires) or `postgres` ([AZURE.md](AZURE.md#the-database-cosmos-db-or-postgresql)) |
 | `BUILD_MODULES` | cloud scripts | Override the modules the image is built with, e.g. `cosmos azure` ([MODULES.md](MODULES.md)). Normally chosen from the database and `CMS_SOURCE` |
+| `GCP_DATABASE` | cloud scripts | `firestore` (the Google Cloud free setup's default for a new site: free, no password) or `postgres` (a site set up with it stays on it) ([GOOGLE_CLOUD.md](GOOGLE_CLOUD.md#postgresql-instead-of-firestore)) |
 | `GCP_TIER`, `AZURE_TIER`, `AWS_TIER` | cloud scripts | `free` (default) or `standard` (always on, bigger, costs money): [GOOGLE_CLOUD.md](GOOGLE_CLOUD.md), [AZURE.md](AZURE.md), [AWS.md](AWS.md) |
 | `GCP_*`, `AZURE_*`, `AWS_*` | cloud scripts | Region, project, your own database (`*_DATABASE_URL`), and so on: the top of each script in `scripts/cloud/` lists them. They can go in `cloud.env` too, except the database address, which is a secret |
 
@@ -72,7 +73,8 @@ second one different ports, for example `DEV_WEB_PORT=5174`,
 | `DATABASE_URL` | | `postgres://user:pass@host:port/db?sslmode=require`. Takes priority over the next one. Locally, `PROD_DATABASE_URL` in `.env.local` sets it for prod |
 | `ConnectionStrings__Default` | local dev database | .NET-style connection string for requests |
 | `ConnectionStrings__Migration` | | If set, migrations run on this connection (the owner role in prod) |
-| `Database__Provider` | postgres | Which database implementation to use ([DATABASE.md](DATABASE.md)). `postgres` by default; `cosmos` once the app is built with that module ([MODULES.md](MODULES.md)) |
+| `Database__Provider` | postgres | Which database implementation to use ([DATABASE.md](DATABASE.md)). `postgres` by default; `cosmos` or `firestore` once the app is built with that module ([MODULES.md](MODULES.md)) |
+| `Firestore__ProjectId`, `Firestore__Database` | the project it runs in, `(default)` | Firestore only: which project's database ([the module's README](../modules/WebBase.Database.Firestore/README.md)). Signs in as the service's own account; no secret |
 | `Database__MigrateOnStartup` | true | Get the database ready when the app starts (Postgres: apply new migrations) |
 | `Auth__Google__ClientId` | | Google sign-in; empty = off |
 | `Auth__AuthorEmails` | empty | Emails (comma or space separated) that become authors at a Google sign-in. The first account is an author anyway. Env: `AUTHOR_EMAILS` ([AUTHORS.md](AUTHORS.md)) |

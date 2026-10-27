@@ -18,6 +18,10 @@
 #                      running (no cold starts), up to 10, 1 GB, and Cloud SQL (roughly $35-45/month)
 #   GCP_PROJECT        project id                  default: gcloud's current project
 #   GCP_REGION         region                      default us-central1. Free tier: us-central1, us-east1, us-west1
+#   GCP_DATABASE       firestore or postgres. Default: firestore (free, and nothing to sign up
+#                      for), unless one of the two below is set, the tier is standard, or the
+#                      site was set up with PostgreSQL before: that keeps PostgreSQL
+#   GCP_FIRESTORE_LOCATION   where Firestore keeps the data   default: GCP_REGION. Fixed once made
 #   GCP_DATABASE_URL   postgres://... for the app, e.g. a free Neon database. Asked for when
 #                      setup first needs one; kept in Secret Manager after that
 #   GCP_CLOUD_SQL      true = create Cloud SQL for PostgreSQL instead (NOT free: ~$10/month)
@@ -32,7 +36,6 @@ PROJECT="$(setting GCP_PROJECT "$(gcloud config get-value project 2>/dev/null)")
 REGION="$(setting GCP_REGION us-central1)"
 TIER="$(tier GCP_TIER)"
 SERVICE="${SLUG}"
-export DB_MODULE=postgres   # what the image is built with (build_modules); the pages' storage is added by CMS_SOURCE
 REPO="${SLUG}"
 SQL_INSTANCE="${SLUG}-db"
 REGISTRY="${REGION}-docker.pkg.dev/${PROJECT}/${REPO}"
@@ -43,6 +46,33 @@ DB_SECRET="${SLUG}-database-url"
 G=(--project "$PROJECT" --quiet)
 
 exists() { "$@" "${G[@]}" >/dev/null 2>&1; }
+
+# Which database the app uses: DATABASE, and DB_MODULE, what the image is built with
+# (build_modules; the CMS's storage is added by CMS_SOURCE).
+#   setup:  GCP_DATABASE, else PostgreSQL if anything asks for it or the site already has
+#           one (its connection string is in Secret Manager), else Firestore.
+#   deploy: GCP_DATABASE, else whatever the running service uses. GitHub Actions deploys
+#           without the settings above and can't read secrets, and must never switch a site's
+#           database by accident.
+pick_database() {
+  local live
+  DATABASE="$(setting GCP_DATABASE)"
+  if [ "$1" = deploy ]; then
+    live="$(gcloud run services describe "$SERVICE" --region "$REGION" --format json "${G[@]}" 2>/dev/null \
+      | grep -A1 '"name": "Database__Provider"' | sed -nE 's/.*"value": "([a-z]+)".*/\1/p' | head -n 1 || true)"
+    live="${live:-postgres}"   # a service from before this setting existed
+    # Switching needs setup (a new database, permissions, secrets), so a deploy never does it.
+    [ -z "$DATABASE" ] || [ "$DATABASE" = "$live" ] \
+      || die "GCP_DATABASE says ${DATABASE}, but the site runs on ${live}. Switching is a setup step: in Cloud Shell, GCP_DATABASE=${DATABASE} ./scripts/cloud/gcp.sh setup (it starts with an empty database)."
+    DATABASE="$live"
+  elif [ -z "$DATABASE" ]; then
+    if [ -n "$(setting GCP_DATABASE_URL)" ] || [ "$(setting GCP_CLOUD_SQL)" = true ] || [ "$TIER" = standard ] \
+       || exists gcloud secrets describe "$DB_SECRET"; then DATABASE=postgres
+    else DATABASE=firestore; fi
+  fi
+  case "$DATABASE" in firestore|postgres) ;; *) die "GCP_DATABASE is '${DATABASE}': use firestore or postgres." ;; esac
+  export DB_MODULE="$DATABASE"
+}
 
 # A service account made a moment ago can take a little while to be visible
 # everywhere (IAM is eventually consistent): try a few times before failing.
@@ -78,7 +108,10 @@ service_url() { gcloud run services describe "$SERVICE" --region "$REGION" "${G[
 # "^@^" makes @ the separator, so values may contain commas.
 app_env() {
   local pairs=("App__Environment=prod" "App__Name=$(setting APP_NAME WebBase)"
-    "Auth__Google__ClientId=$(setting GOOGLE_CLIENT_ID)" "Auth__AuthorEmails=$(setting AUTHOR_EMAILS)" "Cms__Enabled=$(setting CMS_ENABLED false)") pair
+    "Auth__Google__ClientId=$(setting GOOGLE_CLIENT_ID)" "Auth__AuthorEmails=$(setting AUTHOR_EMAILS)" "Cms__Enabled=$(setting CMS_ENABLED false)"
+    "Database__Provider=${DATABASE}") pair
+  # Firestore needs no secret: the app signs in as its own service account.
+  [ "$DATABASE" = firestore ] && pairs+=("Firestore__ProjectId=${PROJECT}")
   for pair in "${CMS_SETTINGS[@]}"; do pairs+=("${pair%%:*}=$(setting "${pair#*:}")"); done
   local IFS=@
   echo "^@^${pairs[*]}"
@@ -96,8 +129,12 @@ service_config() {
     # what Cloud Run's free tier covers. Two instances at most caps the bill.
     # A request may take 60 seconds at most (the default is 5 minutes).
     --cpu-throttling --cpu 1 --timeout 60 "${SIZE[@]}"
-    --set-env-vars "$(app_env)"
-    --set-secrets "Jwt__Key=${JWT_SECRET}:latest,DATABASE_URL=${DB_SECRET}:latest")
+    --set-env-vars "$(app_env)")
+  if [ "$DATABASE" = firestore ]; then
+    CONFIG+=(--set-secrets "Jwt__Key=${JWT_SECRET}:latest")
+    return
+  fi
+  CONFIG+=(--set-secrets "Jwt__Key=${JWT_SECRET}:latest,DATABASE_URL=${DB_SECRET}:latest")
   # Cloud SQL is reached through a socket Cloud Run mounts at /cloudsql/...
   if secret_value "$DB_SECRET" | grep -q '/cloudsql/'; then
     CONFIG+=(--add-cloudsql-instances "${PROJECT}:${REGION}:${SQL_INSTANCE}")
@@ -140,6 +177,26 @@ setup_database() {
   if ! secret_value "$DB_SECRET" | grep -qE '^postgres(ql)?://'; then
     die "The database setting doesn't start with postgres://. Run setup again with GCP_DATABASE_URL=postgres://..."
   fi
+}
+
+# Firestore (Native mode), the database behind Firebase: free up to its daily quotas, for the
+# project's one "(default)" database. Nothing to sign up for and no password: the app's own
+# service account is allowed in.
+setup_firestore() {
+  local location type
+  location="$(setting GCP_FIRESTORE_LOCATION "$REGION")"
+  gcloud services enable firestore.googleapis.com "${G[@]}"
+  type="$(gcloud firestore databases describe --database='(default)' --format 'value(type)' "${G[@]}" 2>/dev/null || true)"
+  if [ -z "$type" ]; then
+    say "Firestore database (default) in ${location}"
+    gcloud firestore databases create --database='(default)' --location "$location" --type firestore-native "${G[@]}"
+  elif [ "$type" != FIRESTORE_NATIVE ]; then
+    die "This project's Firestore database is in ${type} mode; the app needs Native mode. Use another project, or GCP_DATABASE=postgres."
+  else
+    ok "Firestore: keeping the database already there"
+  fi
+  retry gcloud projects add-iam-policy-binding "$PROJECT" --member "serviceAccount:${RUN_SA}" \
+    --role roles/datastore.user --condition=None "${G[@]}" >/dev/null
 }
 
 setup_cloud_sql() {
@@ -203,8 +260,11 @@ JSON
     jwt="$(setting JWT_KEY)"
     if [ -n "$jwt" ]; then put_secret "$JWT_SECRET" "$jwt"
     elif ! exists gcloud secrets describe "$JWT_SECRET"; then put_secret "$JWT_SECRET" "$(random_secret 64)"; fi
-    setup_database
-    for s in "$JWT_SECRET" "$DB_SECRET"; do
+    pick_database setup
+    say "Database: ${DATABASE}"
+    if [ "$DATABASE" = firestore ]; then setup_firestore; secrets=("$JWT_SECRET")
+    else setup_database; secrets=("$JWT_SECRET" "$DB_SECRET"); fi
+    for s in "${secrets[@]}"; do
       retry gcloud secrets add-iam-policy-binding "$s" --member "serviceAccount:${RUN_SA}" \
         --role roles/secretmanager.secretAccessor "${G[@]}" >/dev/null
     done
@@ -296,8 +356,9 @@ JSON
   deploy)
     can_build || die "Building needs Docker. (GitHub Actions has it: ./scripts/cloud/gcp.sh github sets that up.)"
     exists gcloud run services describe "$SERVICE" --region "$REGION" || die "Run ./scripts/cloud/gcp.sh setup first."
+    pick_database deploy
     build_image
-    say "Rolling out ${BUILD}"
+    say "Rolling out ${BUILD} (database: ${DATABASE})"
     # The new image, and cloud.env's settings; secrets and sizes stay as setup left them.
     gcloud run services update "$SERVICE" --region "$REGION" --image "$IMAGE" --update-env-vars "$(app_env)" "${G[@]}"
     check_health
@@ -310,7 +371,8 @@ JSON
   destroy)
     warn "This deletes the Cloud Run service, its images, its secrets (including the database connection string),"
     warn "both service accounts, the GitHub connection, and Cloud SQL WITH ITS DATA if setup made one."
-    warn "Not deleted: a CMS bucket, and any database outside Google (Neon...): delete those yourself."
+    warn "Not deleted: a CMS bucket, the Firestore database and its data, and any database outside Google (Neon...)."
+    warn "Delete those yourself (Firestore: gcloud firestore databases delete --database='(default)')."
     confirm "Really delete them?" || exit 1
     gcloud run services delete "$SERVICE" --region "$REGION" "${G[@]}" || true
     exists gcloud sql instances describe "$SQL_INSTANCE" && { gcloud sql instances delete "$SQL_INSTANCE" "${G[@]}" || true; }
@@ -321,5 +383,5 @@ JSON
     ok "Deleted."
     ;;
   *)
-    sed -n '2,26p' "$0"; exit 1 ;;
+    sed -n '2,30p' "$0"; exit 1 ;;
 esac

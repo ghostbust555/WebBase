@@ -10,6 +10,7 @@ that doesn't, doesn't.
 |---|---|---|---|
 | `WebBase.Database.Postgres` | database | **yes, by default** | PostgreSQL via Entity Framework Core |
 | `WebBase.Database.CosmosDB` | database | no | Azure Cosmos DB for NoSQL |
+| `WebBase.Database.Firestore` | database (`firestore`) | no | Google Cloud Firestore (Native mode), the database behind Firebase. The Google Cloud free setup's default |
 | `WebBase.FileStorage.S3` | file storage (`s3`) | no | Amazon S3, Cloudflare R2, DigitalOcean Spaces, Backblaze B2, MinIO |
 | `WebBase.FileStorage.AzureBlob` | file storage (`azure`) | no | Azure Blob Storage |
 | `WebBase.FileStorage.GoogleCloud` | file storage (`gcs`) | no | Google Cloud Storage |

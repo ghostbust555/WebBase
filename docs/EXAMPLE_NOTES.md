@@ -22,6 +22,7 @@ pattern, delete the feature and then this file: [Removing it](#removing-it).
 | Store contract | `src/WebBase.Core/Data/INoteStore.cs`: every method that reads or removes takes the owner's id |
 | PostgreSQL | `modules/WebBase.Database.Postgres/PostgresNoteStore.cs`; the `Notes` table and its index in `AppDbContext.cs`; the registration in `PostgresModule.cs`; the table is created by the `Initial` migration |
 | Cosmos DB | `modules/WebBase.Database.CosmosDB/CosmosNoteStore.cs`; the `notes` container (partitioned by `/userId`) in `CosmosDatabase.cs`; the registration in `CosmosModule` |
+| Firestore | `modules/WebBase.Database.Firestore/FirestoreNoteStore.cs` (each user's notes in `users/{id}/notes`); the `Notes` name in `FirestoreNames` and the registration in `FirestoreModule`, both in `FirestoreDatabase.cs` |
 | In-memory (for tests) | `InMemoryNoteStore`, the `Notes` list in `InMemoryData`, and the registration, all in `tests/WebBase.Testing/InMemory/InMemoryDatabase.cs` |
 | Endpoints | `src/WebBase.Api/Controllers/NotesController.cs`; the request and response shapes in `src/WebBase.Api/Contracts/NoteContracts.cs` |
 | Generated types | `client/src/api-types.ts` (regenerates by itself from the C# above) |
@@ -98,6 +99,8 @@ Delete these, in this order, and run `./scripts/test.sh` at the end:
    - In `modules/WebBase.Database.CosmosDB/`: `CosmosNoteStore.cs`, the `Notes` constant and its
      `CreateContainerIfNotExistsAsync` line (and the mention in the comment) in `CosmosDatabase.cs`,
      and the `INoteStore` registration in `CosmosModule`
+   - In `modules/WebBase.Database.Firestore/`: `FirestoreNoteStore.cs`, and in `FirestoreDatabase.cs`
+     the `Notes` name in `FirestoreNames` and the `INoteStore` registration in `FirestoreModule`
    - In `tests/WebBase.Testing/InMemory/InMemoryDatabase.cs`: `InMemoryNoteStore`, the `Notes`
      list in `InMemoryData`, and its `Register` line
 2. **Migration**: `./scripts/ef.sh migrations add RemoveNotes`. It drops the `Notes` table, and
@@ -105,7 +108,8 @@ Delete these, in this order, and run `./scripts/test.sh` at the end:
    notice.)
 3. **Cosmos DB container**: the code above no longer creates `notes`, but an account that has it
    keeps it. Delete the container in the Azure portal (*Data Explorer*) when its notes are not
-   wanted any more.
+   wanted any more. Firestore: each user's `notes` subcollection stays until deleted in the
+   console's *Firestore* page (or `gcloud firestore bulk-delete --collection-ids=notes`).
 4. **Website**
    - `client/src/views/NotesView.vue`
    - in `client/src/api.ts`: `notesApi`, the `Note` type, and `CreateNoteRequest` and `NoteDto` in the import

@@ -6,7 +6,7 @@
 #   ./scripts/module.sh remove cosmos   and without one again
 #   ./scripts/module.sh set cosmos azure   exactly these (the image build uses this: ops/Dockerfile)
 #
-# Modules: postgres, cosmos (databases); s3, azure, gcs (file storage).
+# Modules: postgres, cosmos, firestore (databases); s3, azure, gcs (file storage).
 # Adding one makes two edits, which you can also make by hand: a
 # <ProjectReference> in src/WebBase.Api/WebBase.Api.csproj, and a line in
 # src/WebBase.Api/Modules.cs. Neither needs Docker. Commit both.
@@ -20,10 +20,11 @@ info() {
   case "$1" in
     postgres) echo "WebBase.Database.Postgres|PostgresModule|database" ;;
     cosmos)   echo "WebBase.Database.CosmosDB|CosmosModule|database" ;;
+    firestore) echo "WebBase.Database.Firestore|FirestoreModule|database" ;;
     s3)       echo "WebBase.FileStorage.S3|S3Module|file storage" ;;
     azure)    echo "WebBase.FileStorage.AzureBlob|AzureBlobModule|file storage" ;;
     gcs)      echo "WebBase.FileStorage.GoogleCloud|GoogleCloudStorageModule|file storage" ;;
-    *) die "No module called '$1'. Try: postgres, cosmos, s3, azure, gcs." ;;
+    *) die "No module called '$1'. Try: postgres, cosmos, firestore, s3, azure, gcs." ;;
   esac
 }
 
@@ -31,7 +32,7 @@ in_app() { grep -q "modules\\\\$1\\\\$1.csproj" "$CSPROJ"; }
 
 case "${1:-}" in
   list)
-    for name in postgres cosmos s3 azure gcs; do
+    for name in postgres cosmos firestore s3 azure gcs; do
       IFS='|' read -r project _ kind <<<"$(info "$name")"
       if in_app "$project"; then mark="in the app"; else mark="-"; fi
       printf '  %-9s %-13s %-41s %s\n' "$name" "$kind" "modules/${project}" "$mark"
@@ -68,9 +69,10 @@ case "${1:-}" in
     shift
     [ $# -gt 0 ] || die "Which ones? ./scripts/module.sh set cosmos azure"
     for name in "$@"; do info "$name" >/dev/null; done   # unknown names stop here
-    [[ " $* " == *" postgres "* || " $* " == *" cosmos "* ]] || die "The app needs a database module: postgres or cosmos."
+    [[ " $* " == *" postgres "* || " $* " == *" cosmos "* || " $* " == *" firestore "* ]] \
+      || die "The app needs a database module: postgres, cosmos or firestore."
     for name in "$@"; do "$0" add "$name" >/dev/null; done
-    for name in postgres cosmos s3 azure gcs; do
+    for name in postgres cosmos firestore s3 azure gcs; do
       [[ " $* " == *" $name "* ]] || "$0" remove "$name" >/dev/null
     done
     ok "The app is built with: $*"

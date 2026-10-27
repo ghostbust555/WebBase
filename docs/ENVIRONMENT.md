@@ -136,6 +136,8 @@ host's `dotnet` and the database in `.env.host`).
   (S3Mock, Azurite, fake-gcs-server) are Docker containers. They run on every push in GitHub
   ([the workflow](../.github/workflows/tests.yml)).
 - Cosmos DB's tests need its emulator in either mode ([its README](../modules/WebBase.Database.CosmosDB/README.md)).
+  So do Firestore's (`TEST_FIRESTORE`); its emulator is a Java program that runs without Docker
+  ([its README](../modules/WebBase.Database.Firestore/README.md)).
 
 ## In a cloud coding agent or CI
 

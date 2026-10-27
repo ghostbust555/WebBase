@@ -114,6 +114,14 @@ carry the Cosmos package. Its README has the details:
 3. Run its contract tests against the Cosmos DB emulator (the module's README
    has the commands). `./scripts/test.sh` skips them, as it has no emulator.
 
+`modules/WebBase.Database.Firestore/` is the same for **Google Cloud Firestore**
+(Native mode), the database behind Firebase: it passes every contract test against
+the Firestore emulator, and the whole app runs on it. On Google Cloud it's the free
+setup's default: `gcp.sh setup` makes the database and builds the image with the
+module, with no password involved ([GOOGLE_CLOUD.md](GOOGLE_CLOUD.md)). Elsewhere:
+`./scripts/module.sh add firestore`, then `Database__Provider=firestore` and
+`Firestore__ProjectId=...` ([its README](../modules/WebBase.Database.Firestore/README.md)).
+
 Nothing else changes: not the controllers, not `AuthService`, not the website.
 
 The same recipe works for any other database:
@@ -121,7 +129,7 @@ The same recipe works for any other database:
 | Database | How much work |
 |---|---|
 | **SQL Server, MySQL, SQLite** | Small. Copy `modules/WebBase.Database.Postgres/` to `WebBase.Database.SqlServer/` (say, [MODULES.md](MODULES.md#writing-a-new-one)), swap `UseNpgsql` for `UseSqlServer`, change the duplicate-key error check in `AppDbContext.SaveAsync` to that database's error, and make a fresh `Initial` migration. Entity Framework does the rest |
-| **Cosmos DB, MongoDB, DynamoDB** (document databases) | Moderate, like the Cosmos module: there are no tables or joins, so each store decides how records are laid out and how uniqueness is kept |
+| **Cosmos DB, Firestore, MongoDB, DynamoDB** (document databases) | Moderate, like the Cosmos and Firestore modules: there are no tables or joins, so each store decides how records are laid out and how uniqueness is kept |
 
 Things to know before you switch:
 
