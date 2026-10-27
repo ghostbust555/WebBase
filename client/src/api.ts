@@ -111,8 +111,8 @@ export const pagesApi = {
 export const editorApi = {
   list: () => get<PageSummaryDto[]>('/api/editor/pages'),
   get: (id: string) => get<PageDto>(`/api/editor/pages/${id}`),
-  create: (page: SavePageRequest) => post<PageDto>('/api/editor/pages', page),
-  save: (id: string, page: SavePageRequest) => put<PageDto>(`/api/editor/pages/${id}`, page),
+  create: (page: SavePageRequest) => post<PageDto>('/api/editor/pages', page satisfies SavePageRequest),
+  save: (id: string, page: SavePageRequest) => put<PageDto>(`/api/editor/pages/${id}`, page satisfies SavePageRequest),
   remove: (id: string) => del<void>(`/api/editor/pages/${id}`)
 }
 

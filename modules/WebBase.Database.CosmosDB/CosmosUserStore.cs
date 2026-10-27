@@ -105,8 +105,13 @@ public class CosmosUserStore(CosmosClient client, CosmosSettings settings) : IUs
 
     public async Task<bool> AnyAsync(CancellationToken ct = default)
     {
+        // Read on until a page has a result: across partitions Cosmos may answer an
+        // empty page that still has more after it, and stopping there would make the
+        // next sign-up an author on a site that already has accounts.
         using var feed = Users.GetItemQueryIterator<string>("SELECT TOP 1 VALUE c.id FROM c");
-        return feed.HasMoreResults && (await feed.ReadNextAsync(ct)).Count > 0;
+        while (feed.HasMoreResults)
+            if ((await feed.ReadNextAsync(ct)).Count > 0) return true;
+        return false;
     }
 
     public async Task<IReadOnlyList<User>> ListAuthorsAsync(CancellationToken ct = default)

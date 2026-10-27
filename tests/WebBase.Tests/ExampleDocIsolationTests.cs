@@ -18,37 +18,63 @@ public class ExampleDocIsolationTests
         throw new InvalidOperationException("Can't find the repository root from " + AppContext.BaseDirectory);
     }
 
-    private static readonly string[] SkippedFolders = [".git", "node_modules", ".build", "bin", "obj", "dist", ".docker-data"];
+    /// <summary>
+    /// What talking about the example looks like: its name as a feature ("Notes"), its
+    /// types and files, its addresses. Ordinary English is left alone: "Note:" in a
+    /// guide, or "notes" on a site's own About page, is not the example.
+    /// </summary>
+    private static readonly Regex Mention = new(
+        @"\bNotes\b" +                                                    // the feature's name
+        @"|\bI?Notes?(Store|View|Controller|Contracts|Dto|ApiTests)\b" +    // its types and files
+        @"|\bNote\.cs\b|\bnotesApi\b|/api/notes\b|`/notes`" +             // ...and its code and addresses
+        @"|(?i:\bnotes? (example|feature|page|table|container)\b|\badd a note\b)",
+        RegexOptions.Compiled);
 
-    /// <summary>Every markdown file we own: the guides, the READMEs, CLAUDE.md, the modules' READMEs, the CMS content.</summary>
-    private static IEnumerable<string> MarkdownFiles(string dir)
-    {
-        foreach (var file in Directory.GetFiles(dir, "*.md")) yield return file;
-        foreach (var sub in Directory.GetDirectories(dir))
-            if (!SkippedFolders.Contains(Path.GetFileName(sub)))
-                foreach (var file in MarkdownFiles(sub)) yield return file;
-    }
+    /// <summary>True if this line of a guide talks about the example (a link to its guide doesn't count).</summary>
+    public static bool MentionsExample(string line) => Mention.IsMatch(line.Replace("EXAMPLE_NOTES", ""));
+
+    /// <summary>
+    /// The project's own guides: docs/, the READMEs (the root and each module's) and
+    /// CLAUDE.md. Not content/: that's the site owner's own writing.
+    /// </summary>
+    private static IEnumerable<string> Guides(string root) =>
+        Directory.GetFiles(Path.Combine(root, "docs"), "*.md")
+            .Concat(Directory.GetFiles(Path.Combine(root, "modules"), "README.md", SearchOption.AllDirectories))
+            .Append(Path.Combine(root, "README.md"))
+            .Append(Path.Combine(root, "CLAUDE.md"));
+
+    [Theory]
+    [InlineData("Try the **Notes** page: what you type is saved.")]
+    [InlineData("Copy `INoteStore` for your store.")]
+    [InlineData("Open the address, sign up, add a note.")]
+    [InlineData("It sends `POST /api/notes` with the text.")]
+    [InlineData("The notes table is created by the first migration.")]
+    [InlineData("See client/src/views/NotesView.vue.")]
+    public void These_lines_mention_the_example(string line) => Assert.True(MentionsExample(line));
+
+    [Theory]
+    [InlineData("Note: the first account is an author.")]
+    [InlineData("Operating notes for AI coding assistants.")]
+    [InlineData("Names starting with _ are ignored (notes to yourself).")]
+    [InlineData("Every guide links [EXAMPLE_NOTES.md](EXAMPLE_NOTES.md) once.")]
+    [InlineData("A footnote, denoted by a star.")]
+    public void These_lines_do_not(string line) => Assert.False(MentionsExample(line));
 
     [Fact]
     public void No_other_guide_readme_or_claude_md_mentions_the_example()
     {
         var root = RepoRoot();
         var found = new List<string>();
-        foreach (var file in MarkdownFiles(root))
+        foreach (var file in Guides(root))
         {
             var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
             if (relative == ExampleDoc) continue;
             var lines = File.ReadAllLines(file);
             for (var i = 0; i < lines.Length; i++)
-            {
-                // A link to the file is the one allowed mention; its name is not the example being discussed.
-                var text = lines[i].Replace("EXAMPLE_NOTES", "");
-                if (Regex.IsMatch(text, "note", RegexOptions.IgnoreCase))
-                    found.Add($"{relative}:{i + 1}: {lines[i].Trim()}");
-            }
+                if (MentionsExample(lines[i])) found.Add($"{relative}:{i + 1}: {lines[i].Trim()}");
         }
         Assert.True(found.Count == 0,
-            "Only docs/EXAMPLE_NOTES.md may talk about the bundled example (and, to be safe, nothing else may use the word). " +
+            "Only docs/EXAMPLE_NOTES.md may talk about the bundled example. " +
             "Use a neutral example (\"Recipes\", or the pages from docs/PAGES.md), or link to EXAMPLE_NOTES.md in a sentence that still reads " +
             "correctly without it:\n" + string.Join("\n", found));
     }

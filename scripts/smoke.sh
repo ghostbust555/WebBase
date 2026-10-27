@@ -10,6 +10,8 @@
 #
 # Careful on a brand-new real site: the FIRST account ever created is an author
 # (docs/AUTHORS.md), and this script creates accounts. Sign up yourself first.
+# If it does take that slot, it prints the smoke account's sign-in at the end,
+# so you can make yourself an author with it.
 . "$(dirname "$0")/lib.sh"
 
 BASE="${1:-http://localhost:$(env_value DEV_WEB_PORT || true)}"
@@ -81,6 +83,16 @@ if [[ "$REGISTER" == *'"isAuthor":true'* ]]; then
   check "authors: can't remove yourself" '400'  "$(code "${AUTH[@]}" -X DELETE "$BASE/api/authors/$(printf '%s' "$REGISTER" | sed -E 's/.*"user":\{"id":"([^"]+)".*/\1/')")"
 else
   ok "(Authoring checks skipped: the smoke account isn't an author, because the site already had accounts. Use an author's sign-in to try the editor.)"
+fi
+
+if [[ "$REGISTER" == *'"isAuthor":true'* ]]; then
+  # Without this, the site's only author would be an account nobody can sign in to.
+  echo
+  warn "This site's only author is now the smoke account. To make yourself an author:"
+  echo "    1. Sign up (or sign in) as yourself."
+  echo "    2. Sign in as  $EMAIL  with the password  $PASSWORD"
+  echo "    3. Authors -> add your own email. Then sign in as yourself and remove the smoke account."
+  echo "    (Or see docs/AUTHORS.md, \"If the first account is not yours\".)"
 fi
 
 echo

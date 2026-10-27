@@ -636,7 +636,7 @@ else
       echo "# tools in your own shell:   . ./.env.host"
       echo "# Edit a value freely: setupenvironment.sh keeps the passwords and connections it finds here."
       for i in "${!final_keys[@]}"; do echo "export ${final_keys[$i]}=$(shell_quote "${final_vals[$i]}")"; done
-      echo 'for _d in $(printf "%s" "${WEBBASE_HOST_PATH:-}" | tr ":" " "); do case ":$PATH:" in *":$_d:"*) ;; *) PATH="$_d:$PATH" ;; esac; done; export PATH; unset _d'
+      echo '_p="${WEBBASE_HOST_PATH:-}"; while [ -n "$_p" ]; do _d="${_p%%:*}"; case ":$PATH:" in *":$_d:"*) ;; *) PATH="$_d:$PATH" ;; esac; case "$_p" in *:*) _p="${_p#*:}" ;; *) _p="" ;; esac; done; export PATH; unset _p _d'
     } > "$new"
     if [ -f "$ENV_FILE" ] && cmp -s "$new" "$ENV_FILE"; then
       found ".env.host is up to date"; rm -f "$new"

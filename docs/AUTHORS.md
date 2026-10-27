@@ -52,8 +52,9 @@ The rule "the first account is an author" has two sharp edges:
   the harmless way to be wrong; an author can remove the other.
 
 `./scripts/smoke.sh` signs up throwaway accounts. On a brand-new real site it
-would take the first-author slot, so it warns, and its accounts have random
-passwords. Sign up yourself before running it.
+would take the first-author slot, so sign up yourself before running it. If it
+does take it, it prints that account's email and password at the end, so you
+can sign in with it and make yourself an author.
 
 ## Managing authors
 

@@ -120,8 +120,8 @@ to Google Cloud**, which builds the new version, rolls it out, and checks
 
 ### 5. Check it
 
-Open the address and **sign up straight away**: the first account is an author ([AUTHORS.md](AUTHORS.md#sign-up-right-after-you-deploy)). Try **Pages** → **New page**. (Or let a script do that:
-`./scripts/smoke.sh https://your-address`. It creates a test account.)
+Open the address and **sign up straight away**: the first account is an author ([AUTHORS.md](AUTHORS.md#sign-up-right-after-you-deploy)). Try **Pages** → **New page**. Then, if you like, let a script check the rest:
+`./scripts/smoke.sh https://your-address` (after you've signed up: it creates test accounts).
 
 ## Working from Claude Code on the web
 
