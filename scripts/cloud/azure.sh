@@ -132,6 +132,24 @@ build_image() {
   fi
 }
 
+# Long Azure operations are started with --no-wait and watched here. Waiting inside az
+# itself can fail in Cloud Shell ("Only the original caller of an asynchronous operation
+# is allowed to retrieve the results") while the operation carries on fine in Azure.
+wait_provisioned() { # what it is, then the `az ... show` command for it
+  local what="$1" state="" i
+  shift
+  for i in $(seq 1 90); do
+    state="$("$@" --query properties.provisioningState -o tsv 2>/dev/null || true)"
+    case "$state" in
+      Succeeded) return 0 ;;
+      Failed|Canceled) die "${what}: Azure says ${state}. The resource group's Activity log in the portal says why." ;;
+    esac
+    [ "$i" = 1 ] && echo "    waiting for ${what} (${state:-starting})..."
+    sleep 10
+  done
+  die "${what} still isn't ready after 15 minutes (${state:-unknown}). Run setup again in a while."
+}
+
 check_health() {
   local url; url="$(app_url)"
   say "Checking ${url}/api/health (a scaled-to-zero app needs a few seconds to start)"
@@ -258,7 +276,9 @@ case "$1" in
     ID_RESOURCE="$(az identity show -g "$RG" -n "$IDENTITY" --query id -o tsv)"
     env_args
     exists az containerapp env show -g "$RG" -n "$APP_ENV" \
-      || { say "Container Apps environment"; az containerapp env create -g "$RG" -n "$APP_ENV" -l "$LOCATION" -o none; }
+      || { say "Container Apps environment"; az containerapp env create -g "$RG" -n "$APP_ENV" -l "$LOCATION" --no-wait -o none; }
+    # Also when an earlier run started it and lost track of it.
+    wait_provisioned "the Container Apps environment" az containerapp env show -g "$RG" -n "$APP_ENV"
 
     JWT="$(secret_get jwt-key)"
     [ -n "$JWT" ] || JWT="$(random_secret 64)"   # the key that signs sign-ins: made once, kept in the app's secrets
@@ -273,7 +293,8 @@ case "$1" in
         --user-assigned "$ID_RESOURCE" --registry-server "${REGISTRY}.azurecr.io" --registry-identity "$ID_RESOURCE" \
         --target-port 8080 --ingress external \
         --min-replicas "$MIN" --max-replicas "$MAX" --cpu "$CPU" --memory "$MEMORY" \
-        --secrets "jwt-key=${JWT}" "database-url=${DB_URL}" --env-vars "${ENV_ARGS[@]}" -o none
+        --secrets "jwt-key=${JWT}" "database-url=${DB_URL}" --env-vars "${ENV_ARGS[@]}" --no-wait -o none
+      wait_provisioned "the app" az containerapp show -g "$RG" -n "$APP"
     fi
     check_health
     if [ "$TIER" = free ]; then
