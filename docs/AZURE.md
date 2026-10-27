@@ -153,7 +153,7 @@ the compute bill grow without limit. Details and limits:
 | The database | Cloud Shell: `AZURE_DATABASE_URL='postgres://...' ./scripts/cloud/azure.sh setup` | Applies at once |
 | Region, resource group, tier | `AZURE_LOCATION`, `AZURE_RESOURCE_GROUP`, `AZURE_TIER` in `cloud.env`, before the first setup | |
 
-Put `AZURE_LOCATION` in `cloud.env` if you don't want the default (`eastus2`, East US 2),
+Put `AZURE_LOCATION` in `cloud.env` if you don't want the default (`westus2`, West US 2),
 so a deploy from anywhere finds the same place. Google sign-in also needs
 your address among the client's allowed origins ([GOOGLE_SIGNIN.md](GOOGLE_SIGNIN.md)).
 
@@ -181,8 +181,8 @@ database you brought is left alone.
 | `setup` says *AuthorizationFailed*, or can't assign a role | Your account needs the **Owner** role on the subscription (Portal → Subscriptions → Access control). A work account may forbid it: use a personal one |
 | *ACR Tasks* / the build fails with no Docker | Some subscriptions can't use Azure's builders. Run `deploy` on a computer with Docker, signed in with `az login` |
 | `doesn't answer` after a deploy | `./scripts/cloud/azure.sh logs` shows the app's own error, often a wrong database string |
-| Cosmos DB says *high demand in ... region* (*ServiceUnavailable*) | Azure has no room for new Cosmos DB accounts in that region for now. Delete the half-made group (`az group delete -n <name>-rg --yes`), put another region in `.env.local` (`AZURE_LOCATION=westus2`, or `centralus`, `eastus`) and run `setup` again |
-| The Container Apps environment ends *Failed*: *ManagedEnvironmentProvisioningError ... creation of the managed cluster failed, please retry later* | Azure couldn't build it in that region for now. Delete it and its log workspace (`az containerapp env delete -g <name>-rg -n <name>-env --yes`, then `az monitor log-analytics workspace delete -g <name>-rg -n workspace-... --yes --force`), put another region in `.env.local` (`AZURE_LOCATION=westus2`) and run `setup` again. The database can stay where it is |
+| Cosmos DB says *high demand in ... region* (*ServiceUnavailable*) | Azure has no room for new Cosmos DB accounts in that region for now. Delete the half-made group (`az group delete -n <name>-rg --yes`), put another region in `.env.local` (`AZURE_LOCATION=centralus`, or `eastus2`, `eastus`) and run `setup` again |
+| The Container Apps environment ends *Failed*: *ManagedEnvironmentProvisioningError ... creation of the managed cluster failed, please retry later* | Azure couldn't build it in that region for now. Delete it and its log workspace (`az containerapp env delete -g <name>-rg -n <name>-env --yes`, then `az monitor log-analytics workspace delete -g <name>-rg -n workspace-... --yes --force`), put another region in `.env.local` (`AZURE_LOCATION=centralus`) and run `setup` again. The database can stay where it is |
 | *The subscription is not registered to use namespace* | Run `setup` again: it registers them, and the first time can be slow |
 | The site is slow on the first visit | It was idle and is starting: a few seconds, then normal. `AZURE_TIER=standard` keeps it awake |
 | Name already taken (registry, storage, database) | Names include a code from your subscription, so this means you already made one: run `setup` again, or remove the old resource group |
