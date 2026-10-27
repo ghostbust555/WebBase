@@ -72,8 +72,8 @@ the free setup a database:
    AWS_REGION=us-east-1 ./scripts/cloud/aws.sh setup
    ```
    It asks for the connection string. (A **private** repository? GitHub asks
-   for a username and a token as the password: <https://github.com/settings/personal-access-tokens>,
-   only this repository, **Contents: Read-only**.)
+   for a username and a password: the password is a read-only token for this
+   repository, [the token, step by step](CLOUD.md#a-private-repository-the-github-token).)
 5. **Wait**: 5-10 minutes for the free setup (building the image), 15-25 for
    standard (the database and load balancer). It prints your address.
 6. **Check it**: open the address and **sign up straight away**: the first account is an author ([AUTHORS.md](AUTHORS.md#sign-up-right-after-you-deploy)). Try **Pages** → **New page**.

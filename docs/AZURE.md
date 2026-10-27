@@ -48,9 +48,8 @@ repository with this code in it (**Use this template**, or a copy you've pushed)
    cd YOUR-SITE
    ./scripts/cloud/azure.sh setup
    ```
-   A **private** repository? GitHub asks for a username and a token as the
-   password: <https://github.com/settings/personal-access-tokens> → *Generate
-   new token*, only this repository, **Contents: Read-only**.
+   A **private** repository? GitHub asks for a username and a password: the
+   password is a read-only token for this repository, [the token, step by step](CLOUD.md#a-private-repository-the-github-token).
 4. **Wait**: 10-20 minutes, most of it the database server. It prints your
    address, ending in `.azurecontainerapps.io`.
 5. **Check it**: open the address and **sign up straight away**: the first account is an author ([AUTHORS.md](AUTHORS.md#sign-up-right-after-you-deploy)). Try **Pages** → **New page**.

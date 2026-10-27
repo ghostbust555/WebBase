@@ -39,6 +39,30 @@ or `standard`).
 
 ---
 
+## A private repository: the GitHub token
+
+The cloud setups start in a browser terminal (Google Cloud Shell, Azure Cloud
+Shell, AWS CloudShell) with `git clone`. For a **private** repository, GitHub
+then asks for a username and a password, and the password is a **token**, not
+your GitHub password. Make one that can only read this one repository:
+
+1. Open <https://github.com/settings/personal-access-tokens/new>.
+2. **Token name**: anything, e.g. `webbase-clone`. **Expiration**: whatever suits
+   you; it's only used to clone and to `git pull`.
+3. **Resource owner**: you (or the organization that owns the repository).
+4. **Repository access**: *Only select repositories* → this repository.
+5. **Permissions** → *Repositories* → **Contents: Read-only**. Nothing else.
+6. **Generate token**, and copy it: GitHub shows it once.
+
+Then, at `git clone`: **Username** is your GitHub username, **Password** is the
+token. Nothing appears while you paste it; that's normal. (To not be asked
+again at every `git pull`: `git config --global credential.helper 'cache --timeout=86400'`.)
+
+*Write access to repository not granted* (an error 403) means the token can't
+see the repository: on the token's page, check that *Repository access* lists
+it and *Contents* is *Read-only*, and that you pasted this token and not
+another one.
+
 ## The database: use a managed one
 
 In a cloud, **the app runs in a container, and the data lives in the cloud's

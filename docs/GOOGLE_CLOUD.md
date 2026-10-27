@@ -85,8 +85,7 @@ gcloud config set project YOUR-PROJECT-ID
 ```
 
 - A **private** repository? GitHub asks for a username and password; the
-  password is a token: <https://github.com/settings/personal-access-tokens> →
-  *Generate new token*, only this repository, **Contents: Read-only**.
+  password is a read-only token for this repository: [the token, step by step](CLOUD.md#a-private-repository-the-github-token).
 - It makes the Firestore database in your region; that location is permanent.
 
 It turns on the services it needs, creates an image repository, a service
