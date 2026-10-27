@@ -153,7 +153,7 @@ cosmos_connection() {
     fi
     say "Cosmos DB account ${COSMOS} (${mode[*]}), 3-5 minutes" >&2
     az cosmosdb create -g "$RG" -n "$COSMOS" --locations "regionName=${LOCATION}" failoverPriority=0 isZoneRedundant=False \
-      --default-consistency-level Session "${mode[@]}" -o none >&2
+      --default-consistency-level Session "${mode[@]}" -o none >&2 || return 1
   fi
   az cosmosdb keys list -g "$RG" -n "$COSMOS" --type connection-strings \
     --query "connectionStrings[0].connectionString" -o tsv
@@ -223,8 +223,8 @@ case "$1" in
   setup)
     say "Subscription: $(az account show --query name -o tsv). Tier: ${TIER}, region ${LOCATION}"
     say "Turning on the Azure services this needs (the first time takes a few minutes)"
-    for ns in Microsoft.App Microsoft.OperationalInsights Microsoft.ContainerRegistry Microsoft.DBforPostgreSQL \
-              Microsoft.ManagedIdentity Microsoft.Storage; do
+    for ns in Microsoft.App Microsoft.OperationalInsights Microsoft.ContainerRegistry Microsoft.DocumentDB \
+              Microsoft.DBforPostgreSQL Microsoft.ManagedIdentity Microsoft.Storage; do
       az provider register --namespace "$ns" --wait >/dev/null
     done
     az extension add --name containerapp --upgrade --only-show-errors >/dev/null
@@ -243,7 +243,7 @@ case "$1" in
       || die "Couldn't let the app pull images. Your account needs the Owner role on the resource group."
 
     if [ "$DATABASE" = cosmos ]; then
-      DB_URL="$(cosmos_connection)"
+      DB_URL="$(cosmos_connection)" || die "Couldn't create the Cosmos DB account: Azure's message is above."
       case "$DB_URL" in AccountEndpoint=*) ;; *) die "Couldn't read the Cosmos DB account's connection string." ;; esac
     else
       DB_URL="$(database_url)"
