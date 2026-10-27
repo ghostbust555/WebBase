@@ -26,6 +26,7 @@ async function save() {
       <dt>Email</dt><dd>{{ auth.user.email }}</dd>
       <dt>Signs in with</dt>
       <dd>{{ [auth.user.hasPassword && 'password', auth.user.hasGoogle && 'Google'].filter(Boolean).join(' and ') }}</dd>
+      <dt v-if="auth.user.isAuthor">Role</dt><dd v-if="auth.user.isAuthor">Author</dd>
       <dt>Member since</dt><dd>{{ new Date(auth.user.createdAtUtc).toLocaleDateString() }}</dd>
     </dl>
     <form @submit.prevent="save">

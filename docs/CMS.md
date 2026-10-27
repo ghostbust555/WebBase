@@ -39,7 +39,7 @@ in the menu.
 - File and folder names become addresses, so use **lowercase letters,
   digits and dashes** (`my-first-post.md`). Other names are ignored.
 - Names starting with `_` or `.` are ignored and never served. Use `_` for
-  notes to yourself (`_ideas.md`).
+  reminders to yourself (`_ideas.md`).
 - In development, saving a file and reloading the browser shows the change.
 
 ### Page settings
@@ -276,13 +276,13 @@ it's cheap even for a large site.
 | Which names are allowed and served | `src/WebBase.Api/Content/ContentPaths.cs` |
 | theme.css → variables only | `src/WebBase.Api/Content/ThemeCss.cs` |
 | The API (`/api/content/pages`, `/page`, `/theme.css`) and files under `/content/...` | `src/WebBase.Api/Controllers/ContentController.cs` |
-| Address → page, or "not found" | `client/src/views/ContentView.vue` |
+| Address → page (a file first, then a page written in the browser, [PAGES.md](PAGES.md)), or "not found" | `client/src/views/ContentView.vue` |
 | How a page looks | `client/src/components/ContentPageView.vue` and `.content-page` in `style.css` |
 | Markdown → safe HTML | `client/src/lib/markdown.ts` |
-| Menu items | `client/src/App.vue` |
+| Menu items (files and written pages together) | `client/src/stores/menu.ts`, shown by `client/src/App.vue` |
 | Tests | `tests/WebBase.Tests/ContentTests.cs`; each store's in `tests/WebBase.FileStorage.*.Tests/`, all running `tests/WebBase.Testing/FileStoreContractTests.cs` |
 
-The app's own pages (`/login`, `/notes`, `/docs`...) always win: a
+The app's own pages (`/login`, `/docs`, `/write`...) always win: a
 `login.md` is never shown.
 
 ### Another kind of storage
@@ -297,10 +297,11 @@ fake-gcs-server), so no cloud account is needed.
 
 This is deliberately the minimum. It doesn't have:
 
-- **Editing in the browser.** Pages are files. In `content/` that means git
-  (history, review, rollback); in a bucket, the cloud's own tools. An admin
-  editor would be a controller that writes files behind an `[Authorize]`
-  check for admins.
+- **Editing these files in the browser.** The pages here are files. In `content/`
+  that means git (history, review, rollback); in a bucket, the cloud's own tools.
+  For pages that authors write in the browser, see [PAGES.md](PAGES.md): a second
+  kind of page, kept in the database, which works alongside these (files win at
+  an address both have).
 - **Search-engine-friendly HTML.** Pages are drawn in the browser, which
   Google handles but some link previews don't. Rendering the markdown on the
   server instead (for example with the Markdig package) is the upgrade if you

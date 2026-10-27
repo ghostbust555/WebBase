@@ -61,6 +61,7 @@ app_settings() {
   { echo "App__Environment=prod"
     echo "App__Name=$(setting APP_NAME WebBase)"
     echo "Auth__Google__ClientId=$(setting GOOGLE_CLIENT_ID)"
+    echo "Auth__AuthorEmails=$(setting AUTHOR_EMAILS)"
     cms_env
   } | grep -vE '=$' || true
 }

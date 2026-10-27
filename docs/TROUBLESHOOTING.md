@@ -65,6 +65,14 @@ whether you're asking a person or an AI. Copy it in full.
 The token was refused: `JWT_KEY` changed, or the account was deleted, or the
 person didn't visit for 30 days. Sign in again.
 
+## The Pages or Authors link is missing
+
+Those links are for authors only. The first account created on a site is an author;
+anyone else needs an author to add them on the **Authors** page. If nobody who can
+sign in is an author, see [AUTHORS.md](AUTHORS.md#if-the-wrong-person-got-in-first).
+An author who was just removed keeps seeing the links until they reload, but every
+save is refused.
+
 ## Still stuck
 
 Collect, and include when you ask for help:

@@ -99,6 +99,14 @@ keep large files out of the app, in a bucket or a CDN. For a site that's
 actually attacked, put Cloudflare (free) in front: it absorbs floods before
 they reach, or bill, you.
 
+## After the first deploy: sign up
+
+The first account created on a new site is its **author**: it can write pages and
+add other authors ([AUTHORS.md](AUTHORS.md)). Until you sign up, that could be anyone
+who finds the address, so open the site and sign up immediately after the first deploy
+succeeds. (With Google sign-in on, `AUTHOR_EMAILS` also makes a Google account an
+author.) The cloud scripts don't sign up for you and don't create accounts.
+
 ## The CMS content
 
 If you use the [CMS](CMS.md), its pages are built into the image from

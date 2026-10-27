@@ -31,6 +31,7 @@ explained.
 | `POSTGRES_APP_PASSWORD` | prod | The app's own database password. Fixed once prod's database exists |
 | `PROD_DATABASE_URL` | prod | A managed database for prod, instead of the container. Empty = container ([DEPLOYING.md](DEPLOYING.md#a-managed-database)) |
 | `GOOGLE_CLIENT_ID` | dev, prod, cloud | Turns on Google sign-in ([GOOGLE_SIGNIN.md](GOOGLE_SIGNIN.md)) |
+| `AUTHOR_EMAILS` | dev, prod, cloud | Emails that become authors when they sign in with Google. Optional ([AUTHORS.md](AUTHORS.md)). Not for `cloud.env`, which is public: set it in the shell that runs the cloud script, or in `.env.local` |
 | `CMS_ENABLED` | dev, prod, cloud | `true` turns on the CMS ([CMS.md](CMS.md)) |
 | `CMS_SOURCE` | dev, prod, cloud | Where its files are: `files` (`content/`, the default), `s3`, `azure` or `gcs`, each a module to add first ([CMS.md](CMS.md#where-the-content-lives)) |
 | `CMS_S3_*`, `CMS_AZURE_*`, `CMS_GCS_*` | dev, prod, cloud | The bucket or container, for `s3` / `azure` / `gcs`. The keys and connection string among them are secrets, and the cloud scripts don't copy them ([CMS.md](CMS.md#in-a-cloud)) |
@@ -74,6 +75,7 @@ second one different ports, for example `DEV_WEB_PORT=5174`,
 | `Database__Provider` | postgres | Which database implementation to use ([DATABASE.md](DATABASE.md)). `postgres` by default; `cosmos` once the app is built with that module ([MODULES.md](MODULES.md)) |
 | `Database__MigrateOnStartup` | true | Get the database ready when the app starts (Postgres: apply new migrations) |
 | `Auth__Google__ClientId` | | Google sign-in; empty = off |
+| `Auth__AuthorEmails` | empty | Emails (comma or space separated) that become authors at a Google sign-in. The first account is an author anyway. Env: `AUTHOR_EMAILS` ([AUTHORS.md](AUTHORS.md)) |
 | `Cms__Enabled` | false | The CMS ([CMS.md](CMS.md)) |
 | `Cms__Source` | files | `files`, or a file storage module the app is built with: `s3`, `azure`, `gcs` |
 | `Cms__ContentPath` | `../../content` | For `files`: the folder. Docker sets this (`/src/content` in dev, `/app/content` in the image) |
@@ -87,7 +89,7 @@ second one different ports, for example `DEV_WEB_PORT=5174`,
 | `Abuse__PerIpPerMinute` | 240 | More requests than this from one address in a minute bans it (a page load is 10-30). Env: `ABUSE_PER_IP_PER_MINUTE` |
 | `Abuse__BanMinutes` | 30 | How long a ban lasts. Env: `ABUSE_BAN_MINUTES` |
 | `Abuse__TotalPerMinute` | 6000 | All addresses together, per running copy of the app. Past it, requests get a quick 503 for the rest of the minute, so a flood from many addresses has a ceiling. 0 = none. Env: `ABUSE_TOTAL_PER_MINUTE` |
-| `Abuse__MaxBodyKb` | 256 | The biggest request body accepted. Env: `ABUSE_MAX_BODY_KB` |
+| `Abuse__MaxBodyKb` | 256 | The biggest request body accepted. Env: `ABUSE_MAX_BODY_KB`. Keep it at 240 or more: the longest page an author can save is about that big ([PAGES.md](PAGES.md#rules)); the app warns at startup if it is lower |
 | `PORT` | | If set (by a cloud host), listen on this port instead of 8080 |
 
 ## Adding a setting

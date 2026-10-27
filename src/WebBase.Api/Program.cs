@@ -24,6 +24,7 @@ var config = builder.Configuration;
 
 builder.Services.Configure<AppOptions>(config.GetSection(AppOptions.SectionName));
 builder.Services.Configure<GoogleAuthOptions>(config.GetSection(GoogleAuthOptions.SectionName));
+builder.Services.Configure<AuthOptions>(config.GetSection(AuthOptions.SectionName));
 var appOptions = config.GetSection(AppOptions.SectionName).Get<AppOptions>() ?? new AppOptions();
 
 // Cloud hosts (Cloud Run, Render, Railway, Heroku...) say which port to listen
@@ -162,6 +163,10 @@ if (appOptions.IsDevelopment && config["Dev:TypeScriptOutput"] is { Length: > 0 
         app.Logger.LogWarning("Could not write {File}: {Error}", TypeScriptContracts.RelativePath, e.Message);
     }
 }
+
+if (abuse.MaxBodyKb * 1024L < WebBase.Api.Pages.PageRules.MaxRequestBytes)
+    app.Logger.LogWarning("Abuse:MaxBodyKb is {Kb} KB, less than the {Needed} KB a full-size page needs: long pages will be refused (docs/PAGES.md)",
+        abuse.MaxBodyKb, (WebBase.Api.Pages.PageRules.MaxRequestBytes + 1023) / 1024);
 
 app.Logger.LogInformation("{Name} starting: environment={Environment} build={Build} database={Database} google-sign-in={Google} cms={Cms}",
     appOptions.Name, appOptions.IsDevelopment ? "development" : "prod",

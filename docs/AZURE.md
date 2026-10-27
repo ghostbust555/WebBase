@@ -53,7 +53,7 @@ repository with this code in it (**Use this template**, or a copy you've pushed)
    new token*, only this repository, **Contents: Read-only**.
 4. **Wait**: 10-20 minutes, most of it the database server. It prints your
    address, ending in `.azurecontainerapps.io`.
-5. **Check it**: open the address, sign up, add a note.
+5. **Check it**: open the address and **sign up straight away**: the first account is an author ([AUTHORS.md](AUTHORS.md#sign-up-right-after-you-deploy)). Try **Pages** → **New page**.
 
 What setup made, all in one *resource group* named `webbase-rg` (a folder
 holding everything, so removing it removes all of it):

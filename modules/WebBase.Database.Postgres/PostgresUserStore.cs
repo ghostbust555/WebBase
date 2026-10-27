@@ -14,6 +14,11 @@ public class PostgresUserStore(AppDbContext db) : IUserStore
     public Task<User?> FindByGoogleSubjectAsync(string subject, CancellationToken ct = default) =>
         db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.GoogleSubject == subject, ct);
 
+    public Task<bool> AnyAsync(CancellationToken ct = default) => db.Users.AnyAsync(ct);
+
+    public async Task<IReadOnlyList<User>> ListAuthorsAsync(CancellationToken ct = default) =>
+        await db.Users.AsNoTracking().Where(u => u.IsAuthor).OrderBy(u => u.CreatedAtUtc).ToListAsync(ct);
+
     public async Task AddAsync(User user, CancellationToken ct = default)
     {
         db.Users.Add(user);

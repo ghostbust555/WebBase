@@ -13,6 +13,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 {
     public DbSet<User> Users => Set<User>();
     public DbSet<Note> Notes => Set<Note>();
+    public DbSet<Page> Pages => Set<Page>();
 
     protected override void OnModelCreating(ModelBuilder model)
     {
@@ -22,6 +23,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             user.HasIndex(u => u.GoogleSubject).IsUnique();
             user.Property(u => u.Email).HasMaxLength(320);
             user.Property(u => u.DisplayName).HasMaxLength(80);
+        });
+
+        model.Entity<Page>(page =>
+        {
+            page.HasIndex(p => p.Path).IsUnique();
+            page.Property(p => p.Path).HasMaxLength(100);
+            page.Property(p => p.Title).HasMaxLength(120);
+            // No navigation to the user: UpdatedById is just an id, so deleting
+            // an author never deletes the site's pages.
+            page.Ignore(p => p.IsPublished);
         });
 
         model.Entity<Note>(note =>

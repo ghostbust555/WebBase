@@ -10,6 +10,7 @@ grow into whatever you're building.
 | **API** | C# / [ASP.NET Core 10](https://learn.microsoft.com/aspnet/core) - `src/WebBase.Api/` |
 | **Database** | [PostgreSQL 18](https://www.postgresql.org), via Entity Framework Core, behind swappable stores (a Cosmos DB module is included, used only if you add it). Managed Postgres recommended for production |
 | **Sign-in** | Email + password built in; "Sign in with Google" switched on by one setting |
+| **Authors and pages** | The first account is an *author*; authors write and publish pages in the browser (markdown with a live preview) and manage who else is an author |
 | **Content** | Optional CMS: markdown files become pages, and a `theme.css` sets the colours. Kept in `content/`, an S3 bucket or Azure Blob Storage; off until switched on |
 | **Running it** | [Docker](https://www.docker.com) for everything - development and production |
 | **Going public** | [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) from your own computer, or a cloud (Azure, AWS, Google Cloud, Fly, Render...) |
@@ -29,6 +30,8 @@ cd my-site
 
 The new site's home page is the getting-started guide. Every guide in
 `docs/` can be read in the browser at `/docs`.
+
+No Docker (a cloud coding agent, a locked-down machine)? `./setupenvironment.sh --yes`, then `./scripts/dev-host.sh up`: see **[docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)**.
 
 Never used a terminal, or don't have Docker yet? Start with
 **[docs/GETTING_STARTED.md](docs/GETTING_STARTED.md)** - it goes step by step.
@@ -54,20 +57,24 @@ Never used a terminal, or don't have Docker yet? Start with
 ## The guides
 
 1. **[Getting started](docs/GETTING_STARTED.md)** - from nothing to a running site.
-2. **[How it fits together](docs/HOW_IT_FITS_TOGETHER.md)** - what each piece does and how a click becomes a database row.
-3. **[Developing](docs/DEVELOPING.md)** - making changes, adding a feature (with a worked example), tests.
-4. **[The database](docs/DATABASE.md)** - where your data should live, and switching to another database (e.g. Cosmos DB).
-5. **[Modules](docs/MODULES.md)** - databases and cloud storage as separate projects, added only when you need them.
-6. **[Deploying on your own computer](docs/DEPLOYING.md)** - production, releases, rollback, backups.
-7. **[Your own domain with Cloudflare Tunnel](docs/CLOUDFLARE_TUNNEL.md)** - public, with no router changes.
-8. **[Google Cloud Run, for free](docs/GOOGLE_CLOUD.md)** - deployed from GitHub on every push; set up from a browser.
-9. **[Azure Container Apps](docs/AZURE.md)** - about $5/month, or always-on; set up from Cloud Shell.
-10. **[Amazon Web Services](docs/AWS.md)** - free on Lambda, or always-on with RDS; set up from CloudShell.
-11. **[Deploying to a cloud](docs/CLOUD.md)** - the three above compared, plus Fly.io, Render, Railway, a VPS.
-12. **[Google sign-in](docs/GOOGLE_SIGNIN.md)** - optional.
-13. **[The CMS](docs/CMS.md)** - optional: pages written as markdown files, in the repository or a bucket.
-14. **[Settings reference](docs/CONFIGURATION.md)** - every setting and secret.
-15. **[Troubleshooting](docs/TROUBLESHOOTING.md)** - when something doesn't work.
+2. **[Setting up a machine](docs/ENVIRONMENT.md)** - `setupenvironment.sh`: with Docker or without it.
+3. **[How it fits together](docs/HOW_IT_FITS_TOGETHER.md)** - what each piece does and how a click becomes a database row.
+4. **[Developing](docs/DEVELOPING.md)** - making changes, adding a feature step by step, tests.
+5. **[The database](docs/DATABASE.md)** - where your data should live, and switching to another database (e.g. Cosmos DB).
+6. **[Modules](docs/MODULES.md)** - databases and cloud storage as separate projects, added only when you need them.
+7. **[Deploying on your own computer](docs/DEPLOYING.md)** - production, releases, rollback, backups.
+8. **[Your own domain with Cloudflare Tunnel](docs/CLOUDFLARE_TUNNEL.md)** - public, with no router changes.
+9. **[Google Cloud Run, for free](docs/GOOGLE_CLOUD.md)** - deployed from GitHub on every push; set up from a browser.
+10. **[Azure Container Apps](docs/AZURE.md)** - about $5/month, or always-on; set up from Cloud Shell.
+11. **[Amazon Web Services](docs/AWS.md)** - free on Lambda, or always-on with RDS; set up from CloudShell.
+12. **[Deploying to a cloud](docs/CLOUD.md)** - the three above compared, plus Fly.io, Render, Railway, a VPS.
+13. **[Google sign-in](docs/GOOGLE_SIGNIN.md)** - optional.
+14. **[The CMS](docs/CMS.md)** - optional: pages written as markdown files, in the repository or a bucket.
+15. **[Authors](docs/AUTHORS.md)** - who may edit the site, and why to sign up right after deploying.
+16. **[Pages written in the browser](docs/PAGES.md)** - the pattern for content that belongs to the site.
+17. **[The bundled example feature](docs/EXAMPLE_NOTES.md)** - the pattern for content that belongs to one user, and how to remove it.
+18. **[Settings reference](docs/CONFIGURATION.md)** - every setting and secret.
+19. **[Troubleshooting](docs/TROUBLESHOOTING.md)** - when something doesn't work.
 
 ## Starting your next project from this one
 
@@ -82,9 +89,11 @@ Each new site gets its own copy:
 3. If several projects will run on the same computer, give each one its own
    ports in `.env.local` (`DEV_WEB_PORT`, `DEV_API_PORT`, `DEV_DB_PORT`, `PROD_PORT`).
 4. Replace the home page, which shows the guide until you do
-   ([docs/DEVELOPING.md](docs/DEVELOPING.md#your-home-page)), and delete the
-   example "Notes" feature once you've used it as a pattern
-   ([docs/DEVELOPING.md](docs/DEVELOPING.md#removing-the-example)).
+   ([docs/DEVELOPING.md](docs/DEVELOPING.md#your-home-page)). The site also comes
+   with a small example feature to learn from; delete it once you've used it as a
+   pattern (its guide, [docs/EXAMPLE_NOTES.md](docs/EXAMPLE_NOTES.md), lists everything to remove).
+5. Deploy, then **sign up straight away**: the first account becomes an author
+   ([docs/AUTHORS.md](docs/AUTHORS.md#sign-up-right-after-you-deploy)).
 
 ## What's in the folder
 
@@ -105,5 +114,5 @@ compose.prod.yaml    what ./deploy.sh and ./tunnel.sh run (+ compose.prod-db.yam
 cloud.env            public settings for cloud deploys (committed; no secrets)
 .github/workflows/   tests on every push; the Google Cloud deploy once it's set up
 setup.sh dev.sh deploy.sh tunnel.sh   the four commands you'll use most
-CLAUDE.md            notes for AI coding assistants working in this repository
+CLAUDE.md            instructions for AI coding assistants working in this repository
 ```

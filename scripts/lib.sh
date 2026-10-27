@@ -8,8 +8,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 # C# build output (Directory.Build.props). Containers mount their own volume
-# here; made now so Docker doesn't create it as root.
-mkdir -p "$ROOT/.build"
+# here; made now so Docker doesn't create it as root. (setupenvironment.sh --check
+# sets WEBBASE_READONLY and must not change anything, not even this.)
+[ "${WEBBASE_READONLY:-}" = 1 ] || mkdir -p "$ROOT/.build"
 
 # The project's short lowercase name: Docker image and database names.
 # scripts/rename.sh changes it along with everything else.
@@ -36,6 +37,55 @@ need_docker() {
     || die "Docker is installed but not running. Start Docker Desktop (or 'sudo systemctl start docker') and try again."
   docker compose version >/dev/null 2>&1 \
     || die "'docker compose' is missing. Update Docker Desktop, or install the compose plugin."
+}
+
+# Is a Docker daemon reachable? Not the same as having the docker command: the
+# client can be installed with nothing behind it (cloud coding-agent containers,
+# CI runners, a stopped Docker Desktop). `docker info` is what asks the daemon.
+docker_ready() {
+  command -v docker >/dev/null 2>&1 || return 1
+  if command -v timeout >/dev/null 2>&1; then
+    timeout 15 docker info >/dev/null 2>&1 </dev/null
+  else
+    docker info >/dev/null 2>&1 </dev/null
+  fi
+}
+
+# "docker" or "host": how the tools (dotnet, node, PostgreSQL) are run. Docker
+# when a daemon answers, else the host's own tools (./setupenvironment.sh makes
+# those ready). WEBBASE_MODE=docker|host forces it.
+run_mode() {
+  case "${WEBBASE_MODE:-}" in docker|host) echo "$WEBBASE_MODE"; return ;; esac
+  if docker_ready; then echo docker; else echo host; fi
+}
+
+# Host mode's settings, written by ./setupenvironment.sh: where dotnet / node /
+# PostgreSQL are, and the connection strings (TEST_POSTGRES, DEV_DATABASE). It is
+# shell syntax with every value single-quoted, because connection strings contain
+# ';'. Never committed (.gitignore).
+load_host_env() {
+  # shellcheck source=/dev/null
+  if [ -f "$ROOT/.env.host" ]; then . "$ROOT/.env.host"; fi
+  return 0
+}
+
+# Single-quote a value for shell: it may hold ; spaces $ or quotes themselves.
+shell_quote() {
+  printf "'%s'" "${1//\'/\'\\\'\'}"
+}
+
+# Host mode: do client/node_modules match package-lock.json? `npm ci` always
+# deletes and reinstalls, so a stamp of the lock file's hash says whether to.
+lock_hash() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi
+}
+npm_deps_current() {
+  [ -d "$ROOT/client/node_modules" ] && [ -f "$ROOT/client/node_modules/.lock-hash" ] \
+    && [ "$(cat "$ROOT/client/node_modules/.lock-hash")" = "$(lock_hash "$ROOT/client/package-lock.json")" ]
+}
+npm_install_deps() {
+  (cd "$ROOT/client" && npm ci --no-audit --no-fund --loglevel=error) || return 1
+  lock_hash "$ROOT/client/package-lock.json" > "$ROOT/client/node_modules/.lock-hash"
 }
 
 # `dc dev ...` / `dc prod ...` = docker compose for that environment, with the

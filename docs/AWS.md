@@ -76,7 +76,7 @@ the free setup a database:
    only this repository, **Contents: Read-only**.)
 5. **Wait**: 5-10 minutes for the free setup (building the image), 15-25 for
    standard (the database and load balancer). It prints your address.
-6. **Check it**: open the address, sign up, add a note.
+6. **Check it**: open the address and **sign up straight away**: the first account is an author ([AUTHORS.md](AUTHORS.md#sign-up-right-after-you-deploy)). Try **Pages** → **New page**.
 
 What setup made, and how it's linked (free setup first):
 

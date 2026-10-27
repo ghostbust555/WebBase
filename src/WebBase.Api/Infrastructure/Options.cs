@@ -94,3 +94,24 @@ public class GoogleAuthOptions
 
     public bool Enabled => !string.IsNullOrWhiteSpace(ClientId);
 }
+
+/// <summary>
+/// Who may author the site's own content. Bound from "Auth". The first account
+/// ever created is an author without any setting (AuthService); this adds more.
+/// </summary>
+public class AuthOptions
+{
+    public const string SectionName = "Auth";
+
+    /// <summary>
+    /// Emails (separated by commas, semicolons or spaces) that become authors
+    /// when the person signs in with a provider that has VERIFIED the address
+    /// (Google). Never matched against a password sign-up: anyone can type any
+    /// address there, so the address proves nothing (docs/AUTHORS.md).
+    /// </summary>
+    public string AuthorEmails { get; set; } = string.Empty;
+
+    public HashSet<string> AuthorEmailSet() =>
+        AuthorEmails.Split([',', ';', ' ', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(e => e.ToLowerInvariant()).ToHashSet();
+}

@@ -66,13 +66,15 @@ const del = <T>(path: string) => request<T>('DELETE', path)
 // renamed in C# then fails `npm run build` wherever the website still uses it.
 
 import type {
-  AuthResponse, ContentPage, ContentSummary, CreateNoteRequest, GoogleSignInRequest, LoginRequest,
-  NoteDto, RegisterRequest, SiteConfig, UpdateProfileRequest, UserDto
+  AddAuthorRequest, AuthorDto, AuthResponse, ContentPage, ContentSummary, CreateNoteRequest, GoogleSignInRequest, LoginRequest,
+  MenuItemDto, NoteDto, PageDto, PageSummaryDto, PublicPageDto, RegisterRequest, SavePageRequest, SiteConfig, UpdateProfileRequest,
+  UserDto
 } from './api-types'
 
-export type { AuthResponse, ContentPage, ContentSummary, SiteConfig }
+export type { AuthResponse, ContentPage, ContentSummary, MenuItemDto, PageDto, PageSummaryDto, PublicPageDto, SavePageRequest, SiteConfig }
 export type User = UserDto
 export type Note = NoteDto
+export type Author = AuthorDto
 
 // ---- Endpoints ----
 
@@ -91,6 +93,27 @@ export const authApi = {
   me: () => get<User>('/api/auth/me'),
   updateMe: (displayName: string) => put<User>('/api/auth/me', { displayName } satisfies UpdateProfileRequest),
   refresh: () => post<AuthResponse>('/api/auth/refresh')
+}
+
+// Who may edit the site's own content. Authors only (docs/AUTHORS.md).
+export const authorsApi = {
+  list: () => get<Author[]>('/api/authors'),
+  add: (email: string) => post<Author>('/api/authors', { email } satisfies AddAuthorRequest),
+  remove: (id: string) => del<void>(`/api/authors/${id}`)
+}
+
+// The authors' pages, written in the browser (docs/PAGES.md). `pagesApi` is what
+// visitors get: published pages only. `editorApi` is for authors.
+export const pagesApi = {
+  menu: () => get<MenuItemDto[]>('/api/pages/menu'),
+  published: (path: string) => get<PublicPageDto>(`/api/pages/published?path=${encodeURIComponent(path)}`)
+}
+export const editorApi = {
+  list: () => get<PageSummaryDto[]>('/api/editor/pages'),
+  get: (id: string) => get<PageDto>(`/api/editor/pages/${id}`),
+  create: (page: SavePageRequest) => post<PageDto>('/api/editor/pages', page),
+  save: (id: string, page: SavePageRequest) => put<PageDto>(`/api/editor/pages/${id}`, page),
+  remove: (id: string) => del<void>(`/api/editor/pages/${id}`)
 }
 
 // The optional CMS. See docs/CMS.md. (Its theme.css is linked in main.ts.)

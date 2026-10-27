@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Options;
+using WebBase.Api.Infrastructure;
 
 namespace WebBase.Api.Services;
 
@@ -14,7 +16,7 @@ public record AuthResult(User? User, string? Error)
 /// Google sign-in to the right person. Knows nothing about HTTP, so it can be
 /// tested on its own.
 /// </summary>
-public class AuthService(IUserStore users)
+public class AuthService(IUserStore users, IOptions<AuthOptions>? options = null)
 {
     public const int MinPasswordLength = 8;
 
@@ -33,7 +35,9 @@ public class AuthService(IUserStore users)
         const string taken = "That email already has an account. Try signing in.";
         if (await users.FindByEmailAsync(email) != null) return AuthResult.Fail(taken);
 
-        var user = new User { Email = email, DisplayName = CleanName(displayName, email) };
+        // The first account ever is an author. Not matched against Auth:AuthorEmails:
+        // an address typed into a sign-up form is unverified (docs/AUTHORS.md).
+        var user = new User { Email = email, DisplayName = CleanName(displayName, email), IsAuthor = !await users.AnyAsync() };
         user.PasswordHash = Hasher.HashPassword(user, password!);
         try
         {
@@ -74,6 +78,9 @@ public class AuthService(IUserStore users)
     ///    in. Link them; their password keeps working.
     /// 3. Neither: a new account with no password.
     ///
+    /// A new account is an author if it is the first ever, or if its verified email
+    /// is in Auth:AuthorEmails (see <see cref="AuthOptions.AuthorEmails"/>).
+    ///
     /// An unverified Google email is refused rather than matched - otherwise
     /// someone could claim another person's account by typing their address.
     /// </summary>
@@ -81,10 +88,12 @@ public class AuthService(IUserStore users)
     {
         if (string.IsNullOrWhiteSpace(account.Subject)) return AuthResult.Fail("Google did not say who that was.");
 
-        var existing = await users.FindByGoogleSubjectAsync(account.Subject);
-        if (existing != null) return AuthResult.Ok(existing);
-
         var email = NormalizeEmail(account.Email);
+        var listed = account.EmailVerified && email.Length > 0 && AuthorEmails.Contains(email);
+
+        var existing = await users.FindByGoogleSubjectAsync(account.Subject);
+        if (existing != null) return AuthResult.Ok(await PromoteAsync(existing, listed));
+
         if (email.Length == 0 || !account.EmailVerified)
             return AuthResult.Fail("That Google account has no confirmed email address.");
 
@@ -94,11 +103,16 @@ public class AuthService(IUserStore users)
             if (byEmail != null)
             {
                 byEmail.GoogleSubject = account.Subject;
+                if (listed) byEmail.IsAuthor = true;
                 await users.UpdateAsync(byEmail);
                 return AuthResult.Ok(byEmail);
             }
 
-            var user = new User { Email = email, GoogleSubject = account.Subject, DisplayName = CleanName(account.Name, email) };
+            var user = new User
+            {
+                Email = email, GoogleSubject = account.Subject, DisplayName = CleanName(account.Name, email),
+                IsAuthor = listed || !await users.AnyAsync(),
+            };
             await users.AddAsync(user);
             return AuthResult.Ok(user);
         }
@@ -107,6 +121,17 @@ public class AuthService(IUserStore users)
             // Two sign-ins with the same new Google account at once; the other won.
             return AuthResult.Fail("That sign-in overlapped with another one. Please try again.");
         }
+    }
+
+    private HashSet<string> AuthorEmails => options?.Value.AuthorEmailSet() ?? [];
+
+    /// <summary>An existing account whose verified email has been added to Auth:AuthorEmails becomes an author at its next Google sign-in. Never the other way round.</summary>
+    private async Task<User> PromoteAsync(User user, bool listed)
+    {
+        if (!listed || user.IsAuthor) return user;
+        user.IsAuthor = true;
+        await users.UpdateAsync(user);
+        return user;
     }
 
     public async Task<User?> UpdateDisplayNameAsync(Guid userId, string displayName)

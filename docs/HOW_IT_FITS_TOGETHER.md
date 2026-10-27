@@ -23,17 +23,17 @@ only asks the server for data. It's written in [Vue](https://vuejs.org), and
 each page is a `.vue` file in `client/src/views/`.
 
 **The API** (`src/WebBase.Api/`) is the program on the server. The website
-asks it things like "who is signed in?" or "save this note", and it answers in
+asks it things like "who is signed in?" or "save this page", and it answers in
 JSON (text a program can read). The API is the only piece allowed to touch the
 database, and it decides who may do what. **Never trust the website to
 enforce a rule.** Anyone can send the API whatever they like, so every rule
 belongs in the API.
 
 **The database** (PostgreSQL) stores everything that must survive a restart:
-accounts, notes, and whatever you add. You don't write SQL by hand. Records
+accounts, pages, and whatever you add. You don't write SQL by hand. Records
 are plain C# classes (`src/WebBase.Core/Models/`), and the API reaches the
 database only through small interfaces called *stores*
-(`src/WebBase.Core/Data/IUserStore.cs`, `INoteStore.cs`). The PostgreSQL
+(`src/WebBase.Core/Data/IUserStore.cs`, `IPageStore.cs`). The PostgreSQL
 implementation behind them is a separate project, a *module*
 (`modules/WebBase.Database.Postgres/`), which uses Entity Framework to turn
 those classes into tables and queries. Because nothing else knows about
@@ -101,37 +101,44 @@ separate databases, separate ports. You can run both at once.
 
 ## Following one click
 
-What happens when a signed-in person adds a note:
+What happens when an author presses *Publish* on a page they are writing
+([PAGES.md](PAGES.md)):
 
-1. **The page** - `client/src/views/NotesView.vue`. Pressing *Add* calls
-   `notesApi.create(text)`.
+1. **The page** - `client/src/views/PageEditorView.vue`. Pressing *Publish*
+   calls `editorApi.save(id, page)` with `published: true`.
 2. **The API client** - `client/src/api.ts`. That sends
-   `POST /api/notes` with `{"text": "..."}`, and attaches the sign-in token as
-   `Authorization: Bearer eyJ...`.
+   `PUT /api/editor/pages/<id>` with the page as JSON, and attaches the sign-in
+   token as `Authorization: Bearer eyJ...`.
 3. **The address** - in development the Vite server forwards `/api/...` to the
    API container. In production the API already is that address.
 4. **The pipeline** - `src/WebBase.Api/Program.cs`, section 4. The request
-   passes through security headers, rate limiting, and then *authentication*,
-   which checks the token's signature with `Jwt:Key` and works out which user
-   sent it.
-5. **The controller** - `Controllers/NotesController.cs`. `[Authorize]` refuses
-   anyone without a valid token (401). `Create` checks the text, makes a `Note`
-   with `UserId = User.GetUserId()`, and hands it to the note store
-   (`INoteStore.AddAsync`).
-6. **The database** - the PostgreSQL store (`modules/WebBase.Database.Postgres/PostgresNoteStore.cs`)
-   saves it through Entity Framework, which sends an `INSERT` into the `Notes` table.
-7. **Back** - the controller returns the new note as JSON. The page adds it
-   to the list.
+   passes through the flood guard, security headers, rate limiting, and then
+   *authentication*, which checks the token's signature with `Jwt:Key` and
+   works out which user sent it.
+5. **The controller** - `Controllers/PageEditorController.cs`. `[Authorize]`
+   refuses anyone without a valid token (401), and `[RequireAuthor]` looks the
+   user up in the database and refuses anyone who is not an author (403,
+   [AUTHORS.md](AUTHORS.md)). `Save` checks the title, address and text (400),
+   refuses an address someone else has (409), stamps the page with
+   `UpdatedById = User.GetUserId()` and hands it to the page store
+   (`IPageStore.UpdateAsync`).
+6. **The database** - the PostgreSQL store (`modules/WebBase.Database.Postgres/PostgresPageStore.cs`)
+   saves it through Entity Framework, which sends an `UPDATE` to the `Pages` table.
+7. **Back** - the controller returns the saved page as JSON. The editor shows
+   "Published" and refreshes the header menu; the next visitor to ask
+   `GET /api/pages/published?path=...` gets the page.
 
 Every feature you build follows the same path: page → `api.ts` → controller →
-store → database.
+store → database. Data that belongs to one user passes the owner's id at every
+step instead of checking for an author; the bundled example of that is in
+[the per-user example](EXAMPLE_NOTES.md).
 
 ## Sign-in, in a few sentences
 
 - **Register or log in** (`/api/auth/register`, `/api/auth/login`): the API
   checks the password against a salted hash (the password itself is never
   stored) and returns a **token**.
-- The **token** is a signed note saying "this is user 1234, valid until
+- The **token** is a signed slip saying "this is user 1234, valid until
   such-and-such". The website keeps it in the browser (`localStorage`) and
   sends it with every request. The server needs no session table, because it
   checks the signature instead. Anyone holding `Jwt:Key` could forge one,

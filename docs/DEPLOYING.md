@@ -33,6 +33,11 @@ Production is completely separate from development: its own database (empty
 at first), its own port, no banner. Accounts you made in development don't
 exist here.
 
+**Sign up right away**: the first account on a new database is an *author*, who can
+write pages and add other authors. On a computer only you can reach that is
+automatic; if you put it on a public address ([CLOUDFLARE_TUNNEL.md](CLOUDFLARE_TUNNEL.md)),
+sign up before you tell anyone the address ([AUTHORS.md](AUTHORS.md#sign-up-right-after-you-deploy)).
+
 ## Releasing again
 
 Make changes, test them in development, commit, then:

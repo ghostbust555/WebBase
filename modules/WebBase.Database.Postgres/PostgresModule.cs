@@ -27,6 +27,7 @@ public class PostgresModule : IDatabaseModule
         services.AddScoped<IDatabase, PostgresDatabase>();
         services.AddScoped<IUserStore, PostgresUserStore>();
         services.AddScoped<INoteStore, PostgresNoteStore>();
+        services.AddScoped<IPageStore, PostgresPageStore>();
     }
 }
 

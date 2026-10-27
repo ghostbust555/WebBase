@@ -1,6 +1,6 @@
 # Working in this repository
 
-Operating notes for AI coding assistants (and humans in a hurry). The guides
+Operating instructions for AI coding assistants (and humans in a hurry). The guides
 in `docs/` explain the design for people; this is the short version plus the
 traps.
 
@@ -11,7 +11,7 @@ traps.
 - `src/WebBase.Api/`: ASP.NET Core 10 controllers. `Program.cs` wires everything
   in numbered sections.
 - `src/WebBase.Core/`: the contracts, no NuGet packages: `Models/` (plain
-  classes, no navigation properties), `Data/` (`IUserStore`, `INoteStore`,
+  classes, no navigation properties), `Data/` (`IUserStore`, `IPageStore`,
   `IDatabase`, `DuplicateKeyException`), `FileStorage/` (`IFileStore`,
   `LocalFileStore`, `FilePaths`), `Modules/` (`IDatabaseModule`, `IFileStorageModule`).
   Namespaces `WebBase.Models`, `WebBase.Data`, `WebBase.FileStorage`, `WebBase.Modules`.
@@ -35,6 +35,21 @@ traps.
   S3Mock, Azurite, fake-gcs-server: `TEST_POSTGRES`, `TEST_S3_URL`,
   `TEST_AZURE_BLOB`, `TEST_GCS_URL`); skipped without it. Cosmos needs its
   emulator (`TEST_COSMOS`), which test.sh doesn't start.
+- **Authors** (docs/AUTHORS.md): `User.IsAuthor`. The first account ever created is an author
+  (`AuthService`: `IUserStore.AnyAsync()`; a tiny race between two simultaneous first sign-ups is
+  accepted and documented), and so is a *Google-verified* email in `Auth:AuthorEmails` (never a
+  password sign-up: its email is unverified). `[Authorize, RequireAuthor]`
+  (`Infrastructure/RequireAuthor.cs`) reads the user from the database on every request, not the
+  token, so revoking is immediate; 401 signed out, 403 `{error}` otherwise. `/api/authors` lists,
+  adds (an existing account, by email) and removes (never yourself, so one always remains).
+  Client: `meta: { requiresAuthor: true }` in `router.ts`, `auth.user?.isAuthor` for links.
+- **Pages written in the browser** (docs/PAGES.md): `Page` + `IPageStore` (Postgres, Cosmos, in-memory),
+  public `/api/pages/menu` and `/published?path=`, authors' `/api/editor/pages` (CRUD). Rules in
+  `Pages/PageRules.cs`: limits, address words, `Reserved` first words (**add a word when you add a
+  client route; a test compares it with `router.ts`**), and `MaxBody` kept under `Abuse:MaxBodyKb`
+  (a test checks). **Files in `content/` win** over a written page at the same address; creating one
+  there is a 409. `ContentView.vue` tries the file, then the written page; `stores/menu.ts` merges
+  both menus. Cosmos: one partition (`/site`) with a unique key on `/path`.
 - `content/`: optional CMS (`Cms__Enabled`, off by default). Code in `Content/`:
   `ContentService` maps addresses to `.md` files, read through `IFileStore`
   (`LocalFileStore` for `Cms:Source=files`, else the file storage module of that
@@ -77,11 +92,12 @@ traps.
 
 ## Commands
 
-Everything runs in Docker; no host SDKs are required.
+Docker is preferred, but not required: with no daemon, `./setupenvironment.sh --yes` installs .NET, Node and PostgreSQL on the host (writes `.env.host`, gitignored), and `dev.sh`-equivalent `scripts/dev-host.sh`, `test.sh`, `ef.sh` and `gen-types.sh` use them (docs/ENVIRONMENT.md). In host mode the S3/Azure/GCS module tests are skipped. Scripts use `$SLUG`, so `rename.sh` keeps working.
 
 | Task | Command |
 |---|---|
-| Start dev (hot reload) | `./dev.sh` → :5173 (port from `.env.local`) |
+| Prepare this machine | `./setupenvironment.sh [--check|--yes|--docker|--no-docker|--with-postgres|--without-postgres]`; idempotent, never overwrites `.env.local`/databases/roles |
+| Start dev (hot reload) | `./dev.sh` → :5173 (port from `.env.local`); no Docker: `./scripts/dev-host.sh up|stop|status|logs` |
 | All checks | `./scripts/test.sh` (all C# tests in `WebBase.slnx`, modules on a throwaway Postgres, S3Mock, Azurite, fake-gcs-server + `vue-tsc` + vite build) |
 | Add/remove a module | `./scripts/module.sh add|remove|list [name]` |
 | Regenerate `client/src/api-types.ts` | `./scripts/gen-types.sh` (automatic while `./dev.sh` runs) |
@@ -94,10 +110,17 @@ Everything runs in Docker; no host SDKs are required.
 
 ## Rules
 
-- **Every store method on user data takes the owner's id** (`INoteStore.RemoveAsync(userId, id)`),
+- **Every store method on user data takes the owner's id** (`RemoveAsync(userId, id)`),
   and controllers pass `User.GetUserId()`. Return a 404 for someone else's row,
-  never a 403 (don't confirm it exists). Copy the isolation test in
-  `NotesApiTests.cs` and the store tests in `StoreContractTests.cs` for each new resource.
+  never a 403 (don't confirm it exists). Write an isolation test (two users) and the store
+  tests in `StoreContractTests.cs` for each new resource; docs/DEVELOPING.md walks through it.
+  **Exception: site-owned content** (the pages authors write) has no owner, so its store takes
+  no owner id and `[Authorize, RequireAuthor]` on every writing endpoint is the guard
+  (docs/AUTHORS.md). The repository may also ship a finished per-user example; if it is still
+  here, docs/EXAMPLE_NOTES.md lists its files and how to remove it.
+- **That example has exactly one doc**, `docs/EXAMPLE_NOTES.md`: no other guide, README or
+  CLAUDE.md may mention it by name, so deleting that file leaves everything readable.
+  `ExampleDocIsolationTests` fails on a mention. Use a neutral example ("Recipes") elsewhere.
 - **No external packages in the Api or Core.** EF, cloud SDKs and the like
   live in a module under `modules/`; controllers and services ask for Core
   interfaces. A new store = interface in `src/WebBase.Core/Data/`, Postgres
@@ -131,6 +154,9 @@ Everything runs in Docker; no host SDKs are required.
 
 ## Traps
 
+- The first account made on a `TestApp` is an author, so `SignedInClientAsync()` first makes a
+  throwaway account and everyone after is ordinary; `AuthorClientAsync()` makes an author. A test
+  of the first-account rule itself needs a fresh `TestApp` and neither helper.
 - The API tests' database is `WebBase.Testing/InMemory`, not EF: Postgres-specific
   behaviour is only covered by `tests/WebBase.Database.Postgres.Tests`.
 - Migrations live in `modules/WebBase.Database.Postgres/Migrations/` (namespace

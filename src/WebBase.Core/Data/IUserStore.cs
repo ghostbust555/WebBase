@@ -21,6 +21,12 @@ public interface IUserStore
     Task<User?> FindByEmailAsync(string email, CancellationToken ct = default);
     Task<User?> FindByGoogleSubjectAsync(string subject, CancellationToken ct = default);
 
+    /// <summary>True once any account exists. How the first account is told apart (AuthService).</summary>
+    Task<bool> AnyAsync(CancellationToken ct = default);
+
+    /// <summary>Every user with <see cref="User.IsAuthor"/>, oldest account first.</summary>
+    Task<IReadOnlyList<User>> ListAuthorsAsync(CancellationToken ct = default);
+
     /// <summary>Saves a new user. Throws <see cref="DuplicateKeyException"/> if the email or Google subject is taken.</summary>
     Task AddAsync(User user, CancellationToken ct = default);
 

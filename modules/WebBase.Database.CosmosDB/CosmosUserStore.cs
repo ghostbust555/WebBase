@@ -103,6 +103,21 @@ public class CosmosUserStore(CosmosClient client, CosmosSettings settings) : IUs
         }
     }
 
+    public async Task<bool> AnyAsync(CancellationToken ct = default)
+    {
+        using var feed = Users.GetItemQueryIterator<string>("SELECT TOP 1 VALUE c.id FROM c");
+        return feed.HasMoreResults && (await feed.ReadNextAsync(ct)).Count > 0;
+    }
+
+    public async Task<IReadOnlyList<User>> ListAuthorsAsync(CancellationToken ct = default)
+    {
+        // Across partitions (users are partitioned by id): fine for the handful of authors a site has.
+        var found = new List<User>();
+        using var feed = Users.GetItemQueryIterator<User>("SELECT * FROM c WHERE c.isAuthor = true");
+        while (feed.HasMoreResults) found.AddRange(await feed.ReadNextAsync(ct));
+        return found.OrderBy(u => u.CreatedAtUtc).ToList();
+    }
+
     public async Task AddAsync(User user, CancellationToken ct = default)
     {
         var claimed = new List<string>();

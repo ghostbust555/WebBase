@@ -21,6 +21,7 @@ services:
       DATABASE_URL: ${PROD_DATABASE_URL:-}
       Jwt__Key: ${JWT_KEY:?Set JWT_KEY in .env.local (./setup.sh does this)}
       Auth__Google__ClientId: ${GOOGLE_CLIENT_ID:-}
+      Auth__AuthorEmails: ${AUTHOR_EMAILS:-}
       # Behind the Cloudflare tunnel, who a visitor is comes in this header (for
       # the per-address limits). Safe here: the port above is this computer only.
       RateLimits__ClientIpHeader: ${CLIENT_IP_HEADER:-CF-Connecting-IP}

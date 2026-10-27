@@ -13,6 +13,7 @@ namespace WebBase.Database.CosmosDB;
 ///          within a partition, so a unique email is an id that can exist once
 ///   notes  partitioned by userId: a user's notes live together, and a note can
 ///          only be found by saying whose it is (the INoteStore rule, for free)
+///   pages  the authors' pages, all in one partition ("site") with a unique key on /path
 /// </summary>
 public class CosmosDatabase(CosmosClient client, CosmosSettings settings) : IDatabase
 {
@@ -27,6 +28,11 @@ public class CosmosDatabase(CosmosClient client, CosmosSettings settings) : IDat
         await db.CreateContainerIfNotExistsAsync(CosmosSettings.Users, "/id", cancellationToken: ct);
         await db.CreateContainerIfNotExistsAsync(CosmosSettings.Keys, "/id", cancellationToken: ct);
         await db.CreateContainerIfNotExistsAsync(CosmosSettings.Notes, "/userId", cancellationToken: ct);
+        // The authors' pages: one logical partition ("site"), so the unique key on the path
+        // means "unique in the whole site". A unique key can only be set when the container is made.
+        var pages = new ContainerProperties(CosmosSettings.Pages, "/site");
+        pages.UniqueKeyPolicy.UniqueKeys.Add(new UniqueKey { Paths = { "/path" } });
+        await db.CreateContainerIfNotExistsAsync(pages, cancellationToken: ct);
     }
 
     public async Task<bool> CanConnectAsync(CancellationToken ct = default)
@@ -45,7 +51,7 @@ public class CosmosDatabase(CosmosClient client, CosmosSettings settings) : IDat
 
 public class CosmosSettings
 {
-    public const string Users = "users", Keys = "keys", Notes = "notes";
+    public const string Users = "users", Keys = "keys", Notes = "notes", Pages = "pages";
     public string DatabaseName { get; init; } = "webbase";
 
     /// <summary>RU/s shared by all containers, or null for serverless accounts and the emulator.</summary>
@@ -88,6 +94,7 @@ public class CosmosModule : IDatabaseModule
         services.AddScoped<IDatabase, CosmosDatabase>();
         services.AddScoped<IUserStore, CosmosUserStore>();
         services.AddScoped<INoteStore, CosmosNoteStore>();
+        services.AddScoped<IPageStore, CosmosPageStore>();
     }
 
     private sealed class TextOnly : DelegatingHandler

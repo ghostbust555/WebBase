@@ -1,15 +1,18 @@
 # WebBase.Database.CosmosDB
 
-A database module: the app's stores (`IUserStore`, `INoteStore`, `IDatabase`)
+A database module: the app's stores (`IUserStore`, `IPageStore`, `IDatabase`, and one per feature)
 on **Azure Cosmos DB for NoSQL**. Built and tested with the rest of the
 repository, but **not part of the app until you add it** (below). See
 [docs/MODULES.md](../../docs/MODULES.md) for modules in general and
 [docs/DATABASE.md](../../docs/DATABASE.md) for how the database layer works.
 
 **Tested**: passes every contract test (`tests/WebBase.Testing/StoreContractTests.cs`,
-run by `tests/WebBase.Database.CosmosDB.Tests/`) against the Cosmos DB
-emulator (`vnext-preview`, October 2026, SDK 3.54.0). The whole API has run
-on it with `./scripts/smoke.sh` passing.
+run by `tests/WebBase.Database.CosmosDB.Tests/`), the page store and its unique
+path key included, against the Cosmos DB emulator (`vnext-preview`, SDK 3.54.0;
+last run October 2026, 26 tests). The whole API ran on it with `./scripts/smoke.sh`
+passing before the pages and authors were added; **since then only the store
+contract has been run against the emulator**, not the whole app. Not run against a
+real Cosmos DB account. `./scripts/test.sh` skips these tests (no emulator).
 
 ## How it stores things
 
@@ -17,16 +20,24 @@ on it with `./scripts/smoke.sh` passing.
 |---|---|---|
 | `users` | `/id` | one document per user |
 | `keys` | `/id` | one small document per unique value: "this email belongs to user X", "this Google account belongs to user X" |
-| `notes` | `/userId` | the notes, each user's together |
+| `pages` | `/site` | the pages authors write ([docs/PAGES.md](../../docs/PAGES.md)): every page in one partition, with a **unique key on `/path`** |
+| one per feature with per-user data | `/userId` | each user's items together (the example in [docs/EXAMPLE_NOTES.md](../../docs/EXAMPLE_NOTES.md) has one) |
 
 Cosmos DB only guarantees an id is unique within its partition. So a unique
 email is a `keys` document whose id is (a hash of) the email: creating a
 second one is refused, which is exactly the rule. Registration claims the
 keys first, then writes the user, and gives the keys back if anything fails.
 
-Notes are partitioned by owner, so "this user's notes" is a cheap one-partition
-query, and a note can only be found by naming its owner, the same rule
-`INoteStore` asks for.
+Per-user data is partitioned by owner, so "this user's items" is a cheap
+one-partition query, and an item can only be found by naming its owner, the same
+rule the per-user stores ask for.
+
+The authors' pages are site-owned, with no owner, and few. They share **one**
+logical partition (`/site`, always `"site"`) so that the container's unique key on
+`/path` means "unique in the whole site": Cosmos DB only enforces a unique key
+within a partition. Lists are single-partition queries, and are sorted by the
+app, not by Cosmos DB, so no composite index is needed. The unique key can only be
+set when a container is created, which `PrepareAsync` does.
 
 ## Switching the app to it
 

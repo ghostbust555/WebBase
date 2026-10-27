@@ -4,10 +4,48 @@
 # Google Cloud Storage stand-ins started just for this,
 # that client/src/api-types.ts matches the C# types, and the website's type
 # check and build.
-# Inside Docker, so nothing but Docker needs installing.
+# Inside Docker, so nothing but Docker needs installing. With no Docker daemon
+# (cloud coding-agent containers, CI runners without Docker) it uses the host's own
+# dotnet and node instead, set up by ./setupenvironment.sh (docs/ENVIRONMENT.md):
+# the Postgres tests run when TEST_POSTGRES names a superuser connection (setupenvironment
+# writes one to .env.host); the S3 / Azure / Google stand-ins are Docker containers, so
+# those module tests are skipped there.
 #
-#   ./scripts/test.sh
+#   ./scripts/test.sh            Docker if a daemon answers, else host tools
+#   ./scripts/test.sh --host     force the host's tools
+#   ./scripts/test.sh --docker   force Docker
 . "$(dirname "$0")/lib.sh"
+case "${1:-}" in
+  --host) export WEBBASE_MODE=host ;;
+  --docker) export WEBBASE_MODE=docker ;;
+  "") ;;
+  *) die "Usage: ./scripts/test.sh [--host|--docker]" ;;
+esac
+
+if [ "$(run_mode)" = host ]; then
+  load_host_env
+  say "No Docker: running the checks with this computer's own tools"
+  command -v dotnet >/dev/null 2>&1 && dotnet --list-sdks 2>/dev/null | grep -qE '^10\.' \
+    || die "The .NET 10 SDK isn't available. Run ./setupenvironment.sh (it needs no Docker)."
+  command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1 || die "Node isn't available. Run ./setupenvironment.sh."
+  if [ -n "${TEST_POSTGRES:-}" ]; then
+    ok "The Postgres module tests run, against the server in TEST_POSTGRES"
+  else
+    warn "TEST_POSTGRES isn't set, so the Postgres module tests are skipped. ./setupenvironment.sh sets it up (needs PostgreSQL)."
+  fi
+  warn "The S3, Azure Blob and Google Cloud Storage module tests need their Docker stand-ins and are skipped here."
+
+  say "C# tests"
+  DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 dotnet test WebBase.slnx --nologo
+
+  say "Website: type check and build"
+  if ! npm_deps_current; then npm_install_deps || die "npm ci failed. See docs/ENVIRONMENT.md."; fi
+  (cd client && npm run build)
+
+  ok "All checks passed (host mode)"
+  exit 0
+fi
+
 need_docker
 
 # Throwaway servers for the tests that need real ones, on their own network,

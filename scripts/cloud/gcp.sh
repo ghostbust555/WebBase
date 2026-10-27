@@ -78,7 +78,7 @@ service_url() { gcloud run services describe "$SERVICE" --region "$REGION" "${G[
 # "^@^" makes @ the separator, so values may contain commas.
 app_env() {
   local pairs=("App__Environment=prod" "App__Name=$(setting APP_NAME WebBase)"
-    "Auth__Google__ClientId=$(setting GOOGLE_CLIENT_ID)" "Cms__Enabled=$(setting CMS_ENABLED false)") pair
+    "Auth__Google__ClientId=$(setting GOOGLE_CLIENT_ID)" "Auth__AuthorEmails=$(setting AUTHOR_EMAILS)" "Cms__Enabled=$(setting CMS_ENABLED false)") pair
   for pair in "${CMS_SETTINGS[@]}"; do pairs+=("${pair%%:*}=$(setting "${pair#*:}")"); done
   local IFS=@
   echo "^@^${pairs[*]}"

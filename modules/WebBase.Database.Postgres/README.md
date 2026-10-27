@@ -1,7 +1,7 @@
 # WebBase.Database.Postgres
 
 A database module, and **the one the app uses by default**: the stores
-(`IUserStore`, `INoteStore`, `IDatabase`) on **PostgreSQL**, through Entity
+(`IUserStore`, `IPageStore`, `IDatabase`, and one per feature) on **PostgreSQL**, through Entity
 Framework Core. This project is the only code in the repository that uses
 Entity Framework. See [docs/DATABASE.md](../../docs/DATABASE.md) and
 [docs/MODULES.md](../../docs/MODULES.md).
@@ -10,7 +10,7 @@ Entity Framework. See [docs/DATABASE.md](../../docs/DATABASE.md) and
 |---|---|
 | `PostgresModule.cs` | `Database:Provider` "postgres": registers the stores. Also the design-time factory `./scripts/ef.sh` uses |
 | `AppDbContext.cs` | The tables (`DbSet`s), and Postgres errors turned into the store contract (`DuplicateKeyException`...) |
-| `PostgresUserStore.cs`, `PostgresNoteStore.cs` | The stores |
+| `PostgresUserStore.cs`, `PostgresPageStore.cs`, and one per feature | The stores |
 | `PostgresDatabase.cs` | Migrations at startup, and the health check |
 | `DatabaseUrl.cs` | `postgres://user:pass@host/db` (as cloud hosts give it) → a .NET connection string |
 | `Migrations/` | Made by `./scripts/ef.sh migrations add <Name>`, applied by the app when it starts |

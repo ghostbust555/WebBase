@@ -28,7 +28,7 @@ public class AbuseOptions
     /// </summary>
     public int TotalPerMinute { get; set; } = 6000;
 
-    /// <summary>The biggest request body accepted, in KB. Notes and sign-in are tiny.</summary>
+    /// <summary>The biggest request body accepted, in KB. Sign-in and forms are tiny; the biggest is a written page (PageRules.MaxRequestBytes, docs/PAGES.md).</summary>
     public int MaxBodyKb { get; set; } = 256;
 
     /// <summary>Addresses remembered at once; past it, new ones aren't tracked (the total cap still applies).</summary>

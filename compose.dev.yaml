@@ -45,6 +45,7 @@ services:
       # Empty is fine here: development falls back to a built-in key.
       Jwt__Key: ${JWT_KEY:-}
       Auth__Google__ClientId: ${GOOGLE_CLIENT_ID:-}
+      Auth__AuthorEmails: ${AUTHOR_EMAILS:-}
       # The optional CMS, reading content/ live: edit a page, reload the browser.
       Cms__Enabled: ${CMS_ENABLED:-false}
       Cms__ContentPath: /src/content

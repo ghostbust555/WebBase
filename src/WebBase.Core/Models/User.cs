@@ -25,5 +25,13 @@ public class User
     /// </summary>
     public string? GoogleSubject { get; set; }
 
+    /// <summary>
+    /// May edit the site's own content (the CMS pages in the browser) and manage
+    /// the other authors. The first account ever created gets it, and so does an
+    /// account whose verified email is in Auth:AuthorEmails (AuthService). A site
+    /// that has no use for it can ignore it: nothing else looks at this.
+    /// </summary>
+    public bool IsAuthor { get; set; }
+
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 }

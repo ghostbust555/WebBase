@@ -46,6 +46,52 @@ namespace WebBase.Database.Postgres.Migrations
                     b.ToTable("Notes");
                 });
 
+            modelBuilder.Entity("WebBase.Models.Page", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("PublishedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("ShowInMenu")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UpdatedById")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Path")
+                        .IsUnique();
+
+                    b.ToTable("Pages");
+                });
+
             modelBuilder.Entity("WebBase.Models.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -67,6 +113,9 @@ namespace WebBase.Database.Postgres.Migrations
 
                     b.Property<string>("GoogleSubject")
                         .HasColumnType("text");
+
+                    b.Property<bool>("IsAuthor")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("PasswordHash")
                         .HasColumnType("text");

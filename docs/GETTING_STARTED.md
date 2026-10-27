@@ -134,8 +134,10 @@ Open **<http://localhost:5173>** in your browser. That's your website. Its
 home page is this very guide, so from here on you can read along in the
 browser. Every guide is in the **Guide** menu.
 
-Press **Sign up**, create an account, and try the **Notes** page: what you
-type is saved in your own database.
+Press **Sign up** and create an account. It is saved in your own database, and
+because it is the first account on this site, it is an *author*: the menu shows
+**Pages** (write pages in the browser) and **Authors**
+([AUTHORS.md](AUTHORS.md)). Try **Pages** → **New page**.
 
 ---
 

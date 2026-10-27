@@ -40,18 +40,18 @@ managed database.
  Controllers, AuthService                  only know the interfaces
         │
         ▼
- src/WebBase.Core/Data/                    the contract: IUserStore, INoteStore, IDatabase
+ src/WebBase.Core/Data/                    the contract: IUserStore, IPageStore, IDatabase
         │
         ▼  chosen by Database__Provider (src/WebBase.Api/Modules.cs)
  modules/WebBase.Database.Postgres/        one implementation: EF Core + PostgreSQL
-   AppDbContext.cs, PostgresUserStore.cs, PostgresNoteStore.cs,
+   AppDbContext.cs, PostgresUserStore.cs, PostgresPageStore.cs,
    PostgresDatabase.cs (migrations, health), Migrations/
 ```
 
 | File | What it is |
 |---|---|
-| `src/WebBase.Core/Models/*.cs` | The records (`User`, `Note`): plain C# classes, with no database code |
-| `src/WebBase.Core/Data/IUserStore.cs`, `INoteStore.cs` | What the app can ask for: "find a user by email", "list this user's notes"... |
+| `src/WebBase.Core/Models/*.cs` | The records (`User`, `Page`): plain C# classes, with no database code |
+| `src/WebBase.Core/Data/IUserStore.cs`, `IPageStore.cs` | What the app can ask for: "find a user by email", "list the published pages"... |
 | `src/WebBase.Core/Data/IDatabase.cs` | Getting the database ready at startup, and "can I reach it?" for `/api/health`. Also `DuplicateKeyException` |
 | `src/WebBase.Api/Modules.cs` | The database modules the app is built with; reads `Database__Provider` and registers the matching one |
 | `modules/WebBase.Database.Postgres/` | The PostgreSQL implementation, and the only code that uses Entity Framework |
@@ -81,10 +81,17 @@ tests. In short:
 - **Uniqueness**: two users can't share an email, or a Google account.
   Breaking that throws `DuplicateKeyException`, even when two requests race
   each other. Each implementation turns its own database's error into this one.
-- **Ownership is part of every call on user data.** `INoteStore` can't be
-  asked for "note 123", only for "note 123 *of user X*". Someone else's note
-  behaves exactly like a missing one.
-- **Order and time**: lists come newest first. Times come back in UTC, to at
+- **Ownership is part of every call on user data.** A store for one user's data
+  can't be asked for "item 123", only for "item 123 *of user X*", and someone
+  else's item behaves exactly like a missing one (the per-user example,
+  [EXAMPLE_NOTES.md](EXAMPLE_NOTES.md), shows it end to end).
+  **The exception is content that belongs to the site**, such as the pages authors
+  write ([PAGES.md](PAGES.md)): it has no owner, so `IPageStore` takes no owner id,
+  and the author check on the endpoints (`[RequireAuthor]`,
+  [AUTHORS.md](AUTHORS.md)) is its guard. A store without an owner id must only be
+  reached from endpoints with that guard.
+- **Order and time**: lists of one user's data come newest first; lists of site
+  content promise no order (the caller sorts). Times come back in UTC, to at
   least the millisecond.
 - **`PrepareAsync`** creates or upgrades whatever the database needs (tables,
   containers, indexes), and is safe to run on every startup.
@@ -98,7 +105,7 @@ in-memory one used by tests), and contract tests for it.
 
 `modules/WebBase.Database.CosmosDB/` is a **complete, tested Azure Cosmos DB
 implementation**. It passes every contract test against the Cosmos DB
-emulator, and the whole app (sign-up, sign-in, notes) runs on it. The app
+emulator, and the whole app (sign-up, sign-in, pages) runs on it. The app
 isn't built with it unless you ask, so projects that don't need it don't
 carry the Cosmos package. Its README has the details:
 

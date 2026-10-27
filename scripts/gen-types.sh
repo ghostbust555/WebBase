@@ -8,9 +8,18 @@
 #
 # How it's made: src/WebBase.Api/Infrastructure/TypeScriptContracts.cs.
 . "$(dirname "$0")/lib.sh"
-need_docker
 
 say "Generating client/src/api-types.ts"
+if [ "$(run_mode)" = host ]; then
+  load_host_env
+  command -v dotnet >/dev/null 2>&1 || die "dotnet isn't available. Run ./setupenvironment.sh."
+  WRITE_TYPESCRIPT=1 DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 \
+    dotnet test tests/WebBase.Tests --nologo -v q --filter "FullyQualifiedName~TypeScriptContractsTests.The_committed" >/dev/null \
+    || die "Generation failed. Run ./scripts/test.sh to see why."
+  ok "client/src/api-types.ts is up to date"
+  exit 0
+fi
+need_docker
 docker run --rm \
   -v "$ROOT:/src" -w /src \
   -v /src/.build \

@@ -173,3 +173,51 @@ input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .notes li span { overflow-wrap: anywhere; }
 .notes li small { grid-column: 1; }
 .notes li button { grid-row: 1 / span 2; grid-column: 2; }
+
+/* A plain list of rows with a control on the right (the authors page, the page list). */
+.rows { list-style: none; padding: 0; margin: 20px 0 0; }
+.rows li {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 12px 0; border-top: 1px solid var(--border);
+}
+.rows li span { overflow-wrap: anywhere; min-width: 0; }
+
+.narrow.wide { max-width: 760px; }
+.title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.title-row h1 { margin: 0.4em 0; }
+.title-row .back { margin-left: auto; }
+.title-row .unsaved { font-size: 0.85rem; }
+.badge { display: inline-block; font-size: 0.8rem; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+.badge.published { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); }
+.badge.draft-badge { background: #fef3c7; color: #92400e; }
+
+/* The page editor: fields, then markdown beside its preview. On a phone, tabs show one at a time. */
+.editor { max-width: 1200px; margin: 0 auto; }
+.editor .fields { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: flex-end; margin-bottom: 16px; }
+.editor .fields > label:not(.inline) { flex: 1 1 260px; }
+.editor label.inline { flex-direction: row; align-items: center; gap: 8px; font-weight: 400; }
+.editor label.inline input[type=checkbox] { width: 18px; height: 18px; }
+.editor input.short { width: 90px; }
+.panes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch; }
+.pane { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.pane-write textarea {
+  flex: 1; min-height: 420px; resize: vertical; font: 0.92rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text);
+}
+.pane-write textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pane-write small.over { color: var(--danger); }
+.pane-preview { min-height: 420px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); overflow: auto; }
+.pane-preview .preview-title { margin-top: 0; font-size: 1.6rem; border: 0; }
+.tabs { display: none; gap: 4px; margin-bottom: 8px; }
+.tabs button {
+  flex: 1; font: inherit; padding: 8px; cursor: pointer; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--muted);
+}
+.tabs button.active { color: var(--accent); border-color: var(--accent); font-weight: 600; }
+.editor .buttons { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 16px; }
+.editor .buttons .link { margin-left: auto; }
+@media (max-width: 760px) {
+  .tabs { display: flex; }
+  .panes { grid-template-columns: 1fr; }
+  .panes[data-tab=write] .pane-preview, .panes[data-tab=preview] .pane-write { display: none; }
+}

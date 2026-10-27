@@ -6,7 +6,7 @@ namespace WebBase.Models;
 /// It exists to show every layer a feature touches - this model, its store
 /// (Data/INoteStore.cs and the Postgres version), a migration, NotesController,
 /// client/src/api.ts and client/src/views/NotesView.vue. Copy it for your first
-/// real feature, then delete it (docs/DEVELOPING.md, "Removing the example").
+/// real feature, then delete it (docs/EXAMPLE_NOTES.md lists everything to remove).
 ///
 /// Models are plain classes with no database code in them, so any database
 /// can store them (docs/DATABASE.md).

@@ -44,7 +44,7 @@ async function remove(note: Note) {
 <template>
   <section class="narrow">
     <h1>Your notes</h1>
-    <p class="muted">Only you can see these. This page is the example feature - see docs/DEVELOPING.md.</p>
+    <p class="muted">Only you can see these. This page is the example feature - see docs/EXAMPLE_NOTES.md.</p>
 
     <form class="row" @submit.prevent="add">
       <input v-model="text" placeholder="Write a note…" maxlength="2000" aria-label="New note" />

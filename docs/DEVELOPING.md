@@ -37,14 +37,18 @@ delete `DocsView.vue`, `components/DocsReader.vue` and `lib/docs.ts` too.
 
 ## Adding a feature, step by step
 
-The **Notes** feature is a complete example of every layer. To build your
-own, say "Recipes", copy it layer by layer:
+As a worked example, we'll add **Recipes**: each signed-in person keeps their own
+recipes, and nobody else can see them. Every layer is below, with the code to
+write. (The repository may also ship a small finished example of this same
+shape; if it is still there, [EXAMPLE_NOTES.md](EXAMPLE_NOTES.md) lists its
+files to copy from. For content that belongs to the *site* instead of to one
+user, [PAGES.md](PAGES.md) is the example.)
 
 ### 1. The record: a model
 
-`src/WebBase.Core/Models/Recipe.cs`, copied from `Note.cs`. A plain class:
-no database code in it. (`WebBase.Core` is the small project of contracts that
-the app and every database module share, [MODULES.md](MODULES.md).)
+`src/WebBase.Core/Models/Recipe.cs`. A plain class: no database code in it.
+(`WebBase.Core` is the small project of contracts that the app and every
+database module share, [MODULES.md](MODULES.md).)
 
 ```csharp
 namespace WebBase.Models;
@@ -64,8 +68,8 @@ public class Recipe
 The app reaches the database only through *stores* ([DATABASE.md](DATABASE.md)),
 so it doesn't depend on which database is behind them.
 
-`src/WebBase.Core/Data/IRecipeStore.cs`, copied from `INoteStore.cs`. Every
-method takes the owner's id, so no caller can reach someone else's recipe:
+`src/WebBase.Core/Data/IRecipeStore.cs`. Every method that reads or removes
+takes the owner's id, so no caller can reach someone else's recipe:
 
 ```csharp
 using WebBase.Models;
@@ -74,26 +78,63 @@ namespace WebBase.Data;
 
 public interface IRecipeStore
 {
+    /// <summary>The user's recipes, newest first.</summary>
     Task<IReadOnlyList<Recipe>> ListAsync(Guid userId, CancellationToken ct = default);
     Task AddAsync(Recipe recipe, CancellationToken ct = default);
+    /// <summary>False if there is no such recipe belonging to this user.</summary>
     Task<bool> RemoveAsync(Guid userId, Guid recipeId, CancellationToken ct = default);
 }
 ```
 
+The contract every store keeps: reads return copies, lists are newest first,
+times are UTC, and removing someone else's recipe behaves exactly like removing a
+missing one.
+
 Its PostgreSQL version goes in the Postgres module,
-`modules/WebBase.Database.Postgres/PostgresRecipeStore.cs`: a copy of
-`PostgresNoteStore.cs` with *Note* changed to *Recipe*. Then, in the same folder:
+`modules/WebBase.Database.Postgres/PostgresRecipeStore.cs`:
+
+```csharp
+using Microsoft.EntityFrameworkCore;
+
+namespace WebBase.Database.Postgres;
+
+public class PostgresRecipeStore(AppDbContext db) : IRecipeStore
+{
+    public async Task<IReadOnlyList<Recipe>> ListAsync(Guid userId, CancellationToken ct = default) =>
+        await db.Recipes.AsNoTracking().Where(r => r.UserId == userId)
+            .OrderByDescending(r => r.CreatedAtUtc).ToListAsync(ct);
+
+    public async Task AddAsync(Recipe recipe, CancellationToken ct = default)
+    {
+        db.Recipes.Add(recipe);
+        await db.SaveAsync(ct);          // SaveAsync turns database errors into the contract's exceptions
+    }
+
+    public async Task<bool> RemoveAsync(Guid userId, Guid recipeId, CancellationToken ct = default)
+    {
+        var recipe = await db.Recipes.FirstOrDefaultAsync(r => r.Id == recipeId && r.UserId == userId, ct);
+        if (recipe == null) return false;
+        db.Recipes.Remove(recipe);
+        await db.SaveAsync(ct);
+        return true;
+    }
+}
+```
+
+Then, in the same folder:
 
 - `AppDbContext.cs`: add the table, `public DbSet<Recipe> Recipes => Set<Recipe>();`,
-  and in `OnModelCreating` its limits and indexes (copy the `Note` block).
+  and in `OnModelCreating` its limits and indexes (an index on `{ UserId, CreatedAtUtc }`,
+  a maximum length for `Title`, and a cascading delete from the user).
 - `PostgresModule.cs`: register it, next to the others in `Register`:
   `services.AddScoped<IRecipeStore, PostgresRecipeStore>();`
 
 And one for the API tests, which run on an in-memory database: in
 `tests/WebBase.Testing/InMemory/InMemoryDatabase.cs`, an `InMemoryRecipeStore`
-(copy `InMemoryNoteStore`, plus a `Recipes` list in `InMemoryData`) and its
-line in `Register`. (Using the Cosmos DB module too? It needs a
-`CosmosRecipeStore` the same way.)
+(a list in `InMemoryData`, every access under `data.Lock`, copies on the way in
+and out with `InMemoryData.Copy`) and its line in `Register`. Using the Cosmos DB
+module too? It needs a `CosmosRecipeStore` the same way, with the container
+partitioned by `/userId`.
 
 ### 3. The migration
 
@@ -112,21 +153,54 @@ applied, change the model again and add another migration instead.
 
 ### 4. The endpoints: a controller
 
-`Controllers/RecipesController.cs`, copied from `NotesController.cs`. It asks
-for `IRecipeStore` in its constructor, never for the database itself. Keep the
-two habits that file shows:
+`src/WebBase.Api/Controllers/RecipesController.cs`. It asks for `IRecipeStore`
+in its constructor, never for the database itself. Keep the two habits shown here:
 
 - **`[Authorize]`** on the class, if only signed-in users may use it.
 - **Pass `User.GetUserId()` to every store call**, so nobody can read or
   change someone else's rows by guessing an id.
 
-Request and response shapes go in `Contracts/` (copy `NoteContracts.cs`).
-Return those, not the model itself, so a field you add later can't leak out
-by accident. Give each action its real return type (`ActionResult<RecipeDto>`),
-or, if it returns plain `IActionResult`, a `[ProducesResponseType<RecipeDto>(200)]`
-(`[ProducesResponseType(204)]` for "nothing"). The website's types are made
-from these ([next step](#5-the-website-apits-and-a-page)), and generation
-stops with the action's name if it can't tell what one returns.
+```csharp
+[ApiController]
+[Route("api/recipes")]
+[Authorize]
+public class RecipesController(IRecipeStore recipes) : ControllerBase
+{
+    [HttpGet]
+    public async Task<List<RecipeDto>> List(CancellationToken ct) =>
+        (await recipes.ListAsync(User.GetUserId(), ct)).Select(RecipeDto.From).ToList();
+
+    [HttpPost]
+    public async Task<ActionResult<RecipeDto>> Create(CreateRecipeRequest request)
+    {
+        var title = (request.Title ?? "").Trim();
+        if (title.Length == 0) return BadRequest(new ErrorResponse("Give the recipe a title."));
+
+        var recipe = new Recipe { UserId = User.GetUserId(), Title = title, Instructions = request.Instructions ?? "" };
+        await recipes.AddAsync(recipe);
+        return CreatedAtAction(nameof(List), RecipeDto.From(recipe));
+    }
+
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> Delete(Guid id) =>
+        // Someone else's recipe answers exactly like a missing one.
+        await recipes.RemoveAsync(User.GetUserId(), id) ? NoContent() : NotFound(new ErrorResponse("No such recipe."));
+}
+```
+
+Request and response shapes go in `Contracts/RecipeContracts.cs`:
+`public record CreateRecipeRequest(string Title, string? Instructions);` and a
+`RecipeDto` with a static `From(Recipe)`. Return those, not the model itself, so
+a field you add later can't leak out by accident. Give each action its real
+return type (`ActionResult<RecipeDto>`), or, if it returns plain `IActionResult`,
+a `[ProducesResponseType<RecipeDto>(200)]` (`[ProducesResponseType(204)]` for
+"nothing"). The website's types are made from these
+([next step](#5-the-website-apits-and-a-page)), and generation stops with the
+action's name if it can't tell what one returns.
+
+Content that belongs to the *site*, not to a user, has no owner id to pass: put
+`[Authorize, RequireAuthor]` on the controller instead ([AUTHORS.md](AUTHORS.md#guarding-your-own-features)).
 
 The new endpoints appear at <http://localhost:5173/scalar> straight away, and
 you can try them there.
@@ -139,7 +213,7 @@ generated from the C# itself. While `./dev.sh` runs, the API rewrites it each
 time it rebuilds, so your `RecipeDto` and `CreateRecipeRequest` are already
 there. (Without `./dev.sh`: `./scripts/gen-types.sh`.) Commit it with the C#.
 
-In `client/src/api.ts`, import them and add the calls (copy `notesApi`):
+In `client/src/api.ts`, import them and add the calls:
 
 ```ts
 import type { CreateRecipeRequest, RecipeDto } from './api-types'
@@ -160,14 +234,19 @@ uses the old one, instead of the site breaking for visitors. If you forget to
 commit the regenerated file, a test (`TypeScriptContractsTests`) fails and
 says to run `./scripts/gen-types.sh`.
 
-Make `client/src/views/RecipesView.vue` (copy `NotesView.vue`), add its address
-in `client/src/router.ts`:
+Make `client/src/views/RecipesView.vue`: load the list when the page opens,
+show errors, and update the list after each change (any page in
+`client/src/views/` is a good model; `AuthorsView.vue` is a small one). Add its
+address in `client/src/router.ts`:
 
 ```ts
 { path: '/recipes', component: () => import('./views/RecipesView.vue'), meta: { requiresAuth: true } },
 ```
 
-and a link in the menu in `client/src/App.vue`:
+(`meta: { requiresAuthor: true }` for a page only authors may use.) Then add
+`recipes` to `PageRules.Reserved` in `src/WebBase.Api/Pages/PageRules.cs`, so a
+page written in the browser can't take the address; a test fails until you do.
+And a link in the menu in `client/src/App.vue`:
 
 ```html
 <RouterLink to="/recipes">Recipes</RouterLink>
@@ -175,32 +254,16 @@ and a link in the menu in `client/src/App.vue`:
 
 ### 6. Tests
 
-- **The API**: copy `tests/WebBase.Tests/NotesApiTests.cs` to
-  `RecipesApiTests.cs`. Keep the "one user cannot see another user's rows"
-  test above all.
-- **The store**: copy the notes tests in
-  `tests/WebBase.Testing/StoreContractTests.cs` for recipes. They run against
-  real PostgreSQL, the in-memory database, and any other database module.
+- **The API**: a `RecipesApiTests.cs` in `tests/WebBase.Tests/`, using
+  `SignedInClientAsync()` to get a signed-in client. Keep the "one user cannot see
+  another user's rows" test above all: two clients, one creates a recipe, the
+  other must get an empty list and a 404 when deleting it.
+- **The store**: tests for recipes in `tests/WebBase.Testing/StoreContractTests.cs`
+  (add, list newest first and only the owner's, remove someone else's returns
+  false). They run against real PostgreSQL, the in-memory database, and any other
+  database module.
 
 Then `./scripts/test.sh`.
-
-## Removing the example
-
-Once you no longer need Notes as a pattern, delete:
-
-- `src/WebBase.Core/Models/Note.cs` and `src/WebBase.Core/Data/INoteStore.cs`
-- `src/WebBase.Api/Controllers/NotesController.cs`, `Contracts/NoteContracts.cs`
-- In `modules/WebBase.Database.Postgres/`: `PostgresNoteStore.cs`, and the `Note`
-  lines in `AppDbContext.cs`, `PostgresDatabase.cs` and `PostgresModule.cs`
-- The same in `modules/WebBase.Database.CosmosDB/` (`CosmosNoteStore.cs`...),
-  and `InMemoryNoteStore` in `tests/WebBase.Testing/InMemory/InMemoryDatabase.cs`
-- `client/src/views/NotesView.vue`, the `notesApi`/`Note` part of `client/src/api.ts`,
-  its route in `router.ts`, and its menu link in `App.vue`
-- `tests/WebBase.Tests/NotesApiTests.cs`, the notes tests (and the one note
-  line in `Changing_a_returned_user_saves_nothing_until_update`) in
-  `tests/WebBase.Testing/StoreContractTests.cs`, and the notes checks in `scripts/smoke.sh`
-
-then `./scripts/ef.sh migrations add RemoveNotes` and `./scripts/test.sh`.
 
 ## Tests
 
@@ -224,7 +287,7 @@ then `./scripts/ef.sh migrations add RemoveNotes` and `./scripts/test.sh`.
   is out of date.
 
 `./scripts/smoke.sh [address]` checks a *running* site end to end: sign up,
-sign in, notes. Use it after `./dev.sh`, after `./deploy.sh`
+sign in, write and publish a page. Use it after `./dev.sh`, after `./deploy.sh`
 (`./scripts/smoke.sh http://localhost:8080`), and after a cloud deploy.
 
 ## The database

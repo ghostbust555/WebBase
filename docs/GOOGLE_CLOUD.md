@@ -52,7 +52,7 @@ You need a Google account, and a GitHub repository with this code in it
 ### 1. A Google Cloud project
 
 1. Go to <https://console.cloud.google.com/projectcreate>, give the project a
-   name, and create it. Note its **project ID** (shown under the name, like
+   name, and create it. Write down its **project ID** (shown under the name, like
    `my-site-123456`).
 2. Billing: <https://console.cloud.google.com/billing>. Create a billing
    account (or start the free trial) and link it to the project.
@@ -120,7 +120,7 @@ to Google Cloud**, which builds the new version, rolls it out, and checks
 
 ### 5. Check it
 
-Open the address. Sign up, add a note. (Or let a script do that:
+Open the address and **sign up straight away**: the first account is an author ([AUTHORS.md](AUTHORS.md#sign-up-right-after-you-deploy)). Try **Pages** → **New page**. (Or let a script do that:
 `./scripts/smoke.sh https://your-address`. It creates a test account.)
 
 ## Working from Claude Code on the web

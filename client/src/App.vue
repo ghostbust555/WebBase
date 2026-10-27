@@ -1,24 +1,20 @@
 <script setup lang="ts">
-import { onMounted, ref, watchEffect } from 'vue'
+import { onMounted, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
-import { contentApi, type ContentSummary } from './api'
 import { useAuthStore } from './stores/auth'
 import { useConfigStore } from './stores/config'
+import { useMenuStore } from './stores/menu'
 
 const auth = useAuthStore()
 const site = useConfigStore()
+const menu = useMenuStore()
 const router = useRouter()
 
 watchEffect(() => { document.title = site.config.name })
 
-// CMS pages with "menu: true" at the top of their file.
-const menu = ref<ContentSummary[]>([])
-onMounted(async () => {
-  if (!site.config.cms) return
-  try {
-    menu.value = (await contentApi.pages()).filter((p) => p.menu)
-  } catch { /* no menu, no harm */ }
-})
+// The pages in the header: CMS files with "menu: true" and published pages
+// authors have put in the menu (stores/menu.ts).
+onMounted(() => menu.refresh())
 
 function signOut() {
   auth.signOut()
@@ -35,10 +31,12 @@ function signOut() {
   <header class="nav">
     <RouterLink to="/" class="brand">{{ site.config.name }}</RouterLink>
     <nav>
-      <RouterLink v-for="item in menu" :key="item.path" :to="`/${item.path}`">{{ item.title }}</RouterLink>
+      <RouterLink v-for="item in menu.links" :key="item.path" :to="`/${item.path}`">{{ item.title }}</RouterLink>
       <RouterLink to="/docs">Guide</RouterLink>
       <template v-if="auth.signedIn">
         <RouterLink to="/notes">Notes</RouterLink>
+        <RouterLink v-if="auth.user?.isAuthor" to="/write">Pages</RouterLink>
+        <RouterLink v-if="auth.user?.isAuthor" to="/authors">Authors</RouterLink>
         <RouterLink to="/account">{{ auth.user?.displayName }}</RouterLink>
         <button class="link" @click="signOut">Sign out</button>
       </template>

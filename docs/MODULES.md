@@ -67,7 +67,7 @@ delete `modules/<it>/` and `tests/<it>.Tests/`, and their lines in `WebBase.slnx
 ## How it's put together
 
 ```
- src/WebBase.Core/       the contracts: models, IUserStore, INoteStore, IDatabase,
+ src/WebBase.Core/       the contracts: models, IUserStore, IPageStore, IDatabase,
                          IFileStore, and what a module is. No packages at all.
         ▲      ▲
         │      └───────────── modules/WebBase.Database.*     (each: its own packages)
@@ -78,7 +78,7 @@ delete `modules/<it>/` and `tests/<it>.Tests/`, and their lines in `WebBase.slnx
 
 | Piece | File |
 |---|---|
-| What a database module provides | `src/WebBase.Core/Modules/IDatabaseModule.cs`: a name, and `Register` (adds `IDatabase`, `IUserStore`, `INoteStore`) |
+| What a database module provides | `src/WebBase.Core/Modules/IDatabaseModule.cs`: a name, and `Register` (adds `IDatabase`, `IUserStore`, `IPageStore`, and a store for each feature you add) |
 | What a file storage module provides | `src/WebBase.Core/Modules/IFileStorageModule.cs`: a name, and `Create` (an `IFileStore` from its settings section) |
 | Which modules the app has, and choosing one | `src/WebBase.Api/Modules.cs` |
 | The contract every database keeps | `tests/WebBase.Testing/StoreContractTests.cs` |

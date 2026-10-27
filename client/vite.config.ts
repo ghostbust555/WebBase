@@ -7,14 +7,15 @@ import vue from '@vitejs/plugin-vue'
 // where the API serves the built website itself.
 //
 // API_URL is set by compose.dev.yaml (http://api:8080 inside Docker). Running
-// `npm run dev` straight on your machine, it falls back to localhost:5000.
+// `npm run dev` straight on your machine (scripts/dev-host.sh does), it falls back to
+// localhost:5000. WEB_PORT does the same for this server's own port.
 const apiUrl = process.env.API_URL || 'http://localhost:5000'
 
 export default defineConfig({
   plugins: [vue()],
   server: {
     host: true,
-    port: 5173,
+    port: Number(process.env.WEB_PORT) || 5173,
     strictPort: true,
     // Any hostname may reach the dev server: localhost, your machine's name
     // on the LAN, a phone on the same Wi-Fi.

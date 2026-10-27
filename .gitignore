@@ -2,6 +2,10 @@
 .env
 .env.local
 .env.*.local
+# Host mode (no Docker): what ./setupenvironment.sh found, with a database password in it,
+# and ./scripts/dev-host.sh's logs and process ids.
+.env.host
+.dev-host/
 *client_secret*.json
 
 # Databases, tunnel state and backups belonging to the Docker environments.
