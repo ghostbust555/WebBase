@@ -230,7 +230,9 @@ case "$1" in
     az extension add --name containerapp --upgrade --only-show-errors >/dev/null
 
     say "Resource group ${RG}"
-    az group create -n "$RG" -l "$LOCATION" -o none
+    # An existing group is kept wherever it is: its location is only a label, and its
+    # resources go to AZURE_LOCATION. (Creating it again in another region would fail.)
+    exists az group show -n "$RG" || az group create -n "$RG" -l "$LOCATION" -o none
 
     say "The app's identity, and a container registry for its images"
     exists az identity show -g "$RG" -n "$IDENTITY" || az identity create -g "$RG" -n "$IDENTITY" -l "$LOCATION" -o none

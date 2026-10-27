@@ -181,6 +181,7 @@ database you brought is left alone.
 | `setup` says *AuthorizationFailed*, or can't assign a role | Your account needs the **Owner** role on the subscription (Portal → Subscriptions → Access control). A work account may forbid it: use a personal one |
 | *ACR Tasks* / the build fails with no Docker | Some subscriptions can't use Azure's builders. Run `deploy` on a computer with Docker, signed in with `az login` |
 | `doesn't answer` after a deploy | `./scripts/cloud/azure.sh logs` shows the app's own error, often a wrong database string |
+| Cosmos DB says *high demand in East US region* (*ServiceUnavailable*) | Azure has no room for new Cosmos DB accounts in that region for now. Delete the half-made group (`az group delete -n <name>-rg --yes`), put another region in `.env.local` (`AZURE_LOCATION=eastus2`, or `westus2`, `centralus`) and run `setup` again |
 | *The subscription is not registered to use namespace* | Run `setup` again: it registers them, and the first time can be slow |
 | The site is slow on the first visit | It was idle and is starting: a few seconds, then normal. `AZURE_TIER=standard` keeps it awake |
 | Name already taken (registry, storage, database) | Names include a code from your subscription, so this means you already made one: run `setup` again, or remove the old resource group |
