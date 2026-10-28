@@ -17,6 +17,21 @@ public class PlumbingTests(TestApp app) : IClassFixture<TestApp>
     }
 
     [Fact]
+    public async Task Config_has_no_build_time_unless_the_image_has_one()
+    {
+        var config = await app.CreateClient().GetFromJsonAsync<JsonElement>("/api/config");
+        Assert.Equal(JsonValueKind.Null, config.GetProperty("builtAtUtc").ValueKind);
+    }
+
+    [Fact]
+    public async Task Config_reports_the_build_time_baked_into_the_image()
+    {
+        using var built = new TestApp().WithWebHostBuilder(b => b.UseSetting("App:BuiltAtUtc", "2026-10-28T01:02:03Z"));
+        var config = await built.CreateClient().GetFromJsonAsync<JsonElement>("/api/config");
+        Assert.Equal(new DateTime(2026, 10, 28, 1, 2, 3, DateTimeKind.Utc), config.GetProperty("builtAtUtc").GetDateTime().ToUniversalTime());
+    }
+
+    [Fact]
     public async Task Health_is_ok()
     {
         var response = await app.CreateClient().GetAsync("/api/health");

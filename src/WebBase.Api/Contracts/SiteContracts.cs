@@ -6,7 +6,8 @@ public record SiteConfig(
     string Environment,      // "development" (shows the banner) or "prod"
     string Build,
     string? GoogleClientId,  // set when "Sign in with Google" is on
-    bool Cms);               // whether the CMS is switched on (CMS_ENABLED)
+    bool Cms,                // whether the CMS is switched on (CMS_ENABLED)
+    DateTime? BuiltAtUtc);   // when this build was made; null if unknown (development)
 
 /// <summary>GET /api/health.</summary>
 public record HealthResponse(string Status, bool Database);

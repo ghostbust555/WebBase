@@ -144,6 +144,7 @@ export interface SiteConfig {
   build: string
   googleClientId: string | null
   cms: boolean
+  builtAtUtc: string | null
 }
 
 /** C# WebBase.Api.Contracts.UpdateProfileRequest */

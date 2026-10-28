@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using WebBase.Api.Contracts;
@@ -21,5 +22,7 @@ public class ConfigController(
         Environment: app.Value.IsDevelopment ? "development" : "prod",
         Build: app.Value.Build,
         GoogleClientId: google.CurrentValue.Enabled ? google.CurrentValue.ClientId : null,
-        Cms: cms.Value.Enabled);
+        Cms: cms.Value.Enabled,
+        BuiltAtUtc: DateTime.TryParse(app.Value.BuiltAtUtc, CultureInfo.InvariantCulture,
+            DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var built) ? built : null);
 }

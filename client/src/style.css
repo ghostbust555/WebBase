@@ -45,6 +45,13 @@ h1 { line-height: 1.2; }
   font-size: 0.8rem; font-weight: 600; padding: 4px 8px; letter-spacing: 0.03em;
 }
 
+/* The build time, top centre: there to check which version is live, not to be read. */
+.build-stamp {
+  position: absolute; top: 2px; left: 50%; transform: translateX(-50%); z-index: 1;
+  font-size: 0.68rem; line-height: 1; color: var(--muted); opacity: 0.4;
+  white-space: nowrap; pointer-events: none; user-select: none;
+}
+
 .nav {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
   padding: 14px 20px; background: var(--surface); border-bottom: 1px solid var(--border);

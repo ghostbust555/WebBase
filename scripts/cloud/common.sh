@@ -81,7 +81,7 @@ build_and_push() {
   local labels=(--label "build=${build}")
   [ -z "${IMAGE_SOURCE:-}" ] || labels+=(--label "org.opencontainers.image.source=${IMAGE_SOURCE}")
   docker build --platform linux/amd64 -f ops/Dockerfile \
-    --build-arg "BUILD_ID=${build}" --build-arg "MODULES=$(build_modules)" "${labels[@]}" -t "$image" .
+    --build-arg "BUILD_ID=${build}" --build-arg "BUILD_TIME=$(build_time)" --build-arg "MODULES=$(build_modules)" "${labels[@]}" -t "$image" .
   say "Uploading ${image}"
   docker push "$image"
 }

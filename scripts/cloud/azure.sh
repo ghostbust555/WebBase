@@ -207,7 +207,7 @@ build_image() {
   else
     say "Building ${IMAGE} in Azure (no Docker here), 3-6 minutes"
     az acr build -r "$REGISTRY" -t "${APP}:${BUILD}" -f ops/Dockerfile --platform linux/amd64 \
-      --build-arg "BUILD_ID=${BUILD}" --build-arg "MODULES=$(build_modules)" . \
+      --build-arg "BUILD_ID=${BUILD}" --build-arg "BUILD_TIME=$(build_time)" --build-arg "MODULES=$(build_modules)" . \
       || die "Azure couldn't build it. Some subscriptions (free trials, for one) may not be allowed to use Azure's builders: run this where Docker is installed instead."
   fi
 }

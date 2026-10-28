@@ -8,7 +8,7 @@ import { configApi, type SiteConfig } from '../api'
  * on. Read once at startup from GET /api/config.
  */
 export const useConfigStore = defineStore('config', () => {
-  const config = ref<SiteConfig>({ name: 'WebBase', environment: 'prod', build: '', googleClientId: null, cms: false })
+  const config = ref<SiteConfig>({ name: 'WebBase', environment: 'prod', build: '', googleClientId: null, cms: false, builtAtUtc: null })
 
   async function load() {
     try {

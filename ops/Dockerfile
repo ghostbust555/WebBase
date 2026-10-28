@@ -57,9 +57,12 @@ EXPOSE 8080
 # Not root: the image's built-in unprivileged user.
 USER $APP_UID
 
-# Which build this is, shown in the dev banner and logged at startup. Last, so
-# changing it never invalidates the layers above.
+# Which build this is (shown in the dev banner and logged at startup), and when it
+# was made (UTC, ISO 8601; shown faintly at the top of every page). Last, so
+# changing them never invalidates the layers above.
 ARG BUILD_ID=""
 ENV App__Build=$BUILD_ID
+ARG BUILD_TIME=""
+ENV App__BuiltAtUtc=$BUILD_TIME
 
 ENTRYPOINT ["dotnet", "WebBase.Api.dll"]

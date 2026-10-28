@@ -19,6 +19,12 @@ public class AppOptions
     /// <summary>Which build this is. Baked into the image by deploy.sh.</summary>
     public string Build { get; set; } = string.Empty;
 
+    /// <summary>
+    /// When this build was made: UTC, ISO 8601. Baked into the image (BUILD_TIME),
+    /// so the page can show which version is live. Empty when not built that way.
+    /// </summary>
+    public string BuiltAtUtc { get; set; } = string.Empty;
+
     public bool IsDevelopment =>
         Environment.Trim().Equals("development", StringComparison.OrdinalIgnoreCase);
 }

@@ -144,6 +144,9 @@ confirm() {
   [[ "$answer" =~ ^[Yy] ]]
 }
 
+# When a build is made, for the image (BUILD_TIME): UTC, ISO 8601.
+build_time() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+
 # An id for a build: when, which commit, and whether there were unsaved edits.
 build_id() {
   local id

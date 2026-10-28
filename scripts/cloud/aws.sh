@@ -109,7 +109,7 @@ build_image() {
     # Lambda wants the app image plus its adapter (ops/Dockerfile.lambda), and
     # a plain image manifest, without the extra records newer Docker adds.
     say "Building the image for Lambda (linux/amd64)"
-    docker build --platform linux/amd64 -f ops/Dockerfile --build-arg "BUILD_ID=${BUILD}" \
+    docker build --platform linux/amd64 -f ops/Dockerfile --build-arg "BUILD_ID=${BUILD}" --build-arg "BUILD_TIME=$(build_time)" \
       --build-arg "MODULES=$(build_modules)" -t "${REPO}-base:${BUILD}" .
     docker build --platform linux/amd64 --provenance=false -f ops/Dockerfile.lambda \
       --build-arg "BASE=${REPO}-base:${BUILD}" -t "$IMAGE" .

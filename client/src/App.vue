@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, watchEffect } from 'vue'
+import { computed, onMounted, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { useConfigStore } from './stores/config'
@@ -9,6 +9,10 @@ const auth = useAuthStore()
 const site = useConfigStore()
 const menu = useMenuStore()
 const router = useRouter()
+
+const builtAt = computed(() => site.config.builtAtUtc
+  ? new Date(site.config.builtAtUtc).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+  : '')
 
 watchEffect(() => { document.title = site.config.name })
 
@@ -27,6 +31,9 @@ function signOut() {
   <div v-if="site.config.environment === 'development'" class="env-banner">
     Development{{ site.config.build ? ` · ${site.config.build}` : '' }}
   </div>
+
+  <!-- Which version is live: the time this build was made, very faint. Not in development. -->
+  <div v-if="builtAt" class="build-stamp">Built {{ builtAt }}</div>
 
   <header class="nav">
     <RouterLink to="/" class="brand">{{ site.config.name }}</RouterLink>

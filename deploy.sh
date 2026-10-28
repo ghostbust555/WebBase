@@ -47,7 +47,7 @@ case "${1:-release}" in
     check_settings
     BUILD="$(build_id)"
     say "Building release ${BUILD}"
-    docker build -f ops/Dockerfile --build-arg "BUILD_ID=${BUILD}" --label "build=${BUILD}" \
+    docker build -f ops/Dockerfile --build-arg "BUILD_ID=${BUILD}" --build-arg "BUILD_TIME=$(build_time)" --label "build=${BUILD}" \
       -t "${IMAGE}:${BUILD}" .
 
     if image_exists "${IMAGE}:prod"; then docker tag "${IMAGE}:prod" "${IMAGE}:previous"; fi
