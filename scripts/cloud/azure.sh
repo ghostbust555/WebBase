@@ -7,7 +7,8 @@
 #                                      Run it again after changing a setting below.
 #   ./scripts/cloud/azure.sh deploy    roll out this commit (git pull first): the image GitHub
 #                                      published for it, or, with AZURE_REGISTRY=acr, built here
-#   ./scripts/cloud/azure.sh github    let GitHub Actions deploy each image it publishes (no keys involved)
+#   ./scripts/cloud/azure.sh github    let GitHub Actions deploy each image it publishes (no keys involved;
+#                                      GITHUB_OIDC_SUBJECT=... trusts the exact subject a run reported)
 #   ./scripts/cloud/azure.sh url       the site's address
 #   ./scripts/cloud/azure.sh logs      the app's output, live
 #   ./scripts/cloud/azure.sh destroy   DELETE everything this created (and its data)
@@ -432,12 +433,41 @@ case "$1" in
     DEPLOYER="${SLUG}-deploy"
     say "An identity for GitHub Actions in ${GITHUB_REPO} to deploy with (${DEPLOYER})"
     exists az identity show -g "$RG" -n "$DEPLOYER" || az identity create -g "$RG" -n "$DEPLOYER" -l "$LOCATION" -o none
-    subject="repo:${GITHUB_REPO}:ref:refs/heads/main"
-    current="$(az identity federated-credential show -g "$RG" --identity-name "$DEPLOYER" -n github-main --query subject -o tsv 2>/dev/null || true)"
-    if [ "$current" != "$subject" ]; then
-      [ -z "$current" ] || az identity federated-credential delete -g "$RG" --identity-name "$DEPLOYER" -n github-main --yes -o none
-      az identity federated-credential create -g "$RG" --identity-name "$DEPLOYER" -n github-main \
-        --issuer https://token.actions.githubusercontent.com --subject "$subject" --audiences api://AzureADTokenExchange -o none
+    # What GitHub says a run is: its "subject". The classic form is repo:owner/name:ref:...;
+    # newer repositories send owner@<owner id>/name@<repo id> instead. Both are trusted, each
+    # a credential of its own. The ids come from GitHub's API: public for a public
+    # repository, through gh (signed in) for a private one, or GITHUB_OIDC_SUBJECT exactly as
+    # the deploy job prints it (and as Azure's AADSTS700213 error quotes it).
+    trust() { # credential name, subject
+      local current
+      current="$(az identity federated-credential show -g "$RG" --identity-name "$DEPLOYER" -n "$1" --query subject -o tsv 2>/dev/null || true)"
+      [ "$current" = "$2" ] && return 0
+      [ -z "$current" ] || az identity federated-credential delete -g "$RG" --identity-name "$DEPLOYER" -n "$1" --yes -o none
+      az identity federated-credential create -g "$RG" --identity-name "$DEPLOYER" -n "$1" \
+        --issuer https://token.actions.githubusercontent.com --subject "$2" --audiences api://AzureADTokenExchange -o none
+      echo "    trusts: $2"
+    }
+    gh_id() { # API path -> its numeric id, or nothing
+      local id
+      id="$(curl -fsS "https://api.github.com/$1" 2>/dev/null | sed -nE 's/^  "id": ([0-9]+),$/\1/p' | head -n 1 || true)"
+      if [ -z "$id" ] && command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+        id="$(gh api "$1" --jq .id 2>/dev/null || true)"
+      fi
+      echo "$id"
+    }
+    trust github-main "repo:${GITHUB_REPO}:ref:refs/heads/main"
+    explicit="$(setting GITHUB_OIDC_SUBJECT)"
+    owner_id="$(gh_id "users/${GITHUB_REPO%%/*}")"
+    repo_id="$(gh_id "repos/${GITHUB_REPO}")"
+    if [ -n "$explicit" ]; then
+      [[ "$explicit" == repo:* ]] || die "GITHUB_OIDC_SUBJECT should start with repo: (copy it from the deploy job's summary or Azure's error)."
+      trust github-main-ids "$explicit"
+    elif [ -n "$owner_id" ] && [ -n "$repo_id" ]; then
+      trust github-main-ids "repo:${GITHUB_REPO%%/*}@${owner_id}/${GITHUB_REPO#*/}@${repo_id}:ref:refs/heads/main"
+    else
+      warn "Couldn't look up this repository's id (a private repository, and no signed-in gh here)."
+      warn "If the first deploy fails at Azure login (AADSTS700213), its summary shows the subject GitHub sent:"
+      warn "  GITHUB_OIDC_SUBJECT='<that subject>' ./scripts/cloud/azure.sh github"
     fi
     # Change the app (a new image, its settings) and read the rest of the group (the app's
     # identity, for its settings). Not: the database, the storage, or making anything new.
