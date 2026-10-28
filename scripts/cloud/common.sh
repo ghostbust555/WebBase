@@ -77,8 +77,11 @@ need_secrets() {
 build_and_push() {
   local image="$1" build="$2"
   say "Building ${image} for linux/amd64"
+  # IMAGE_SOURCE (a repository's address) links the image to it on GitHub's registry.
+  local labels=(--label "build=${build}")
+  [ -z "${IMAGE_SOURCE:-}" ] || labels+=(--label "org.opencontainers.image.source=${IMAGE_SOURCE}")
   docker build --platform linux/amd64 -f ops/Dockerfile \
-    --build-arg "BUILD_ID=${build}" --build-arg "MODULES=$(build_modules)" --label "build=${build}" -t "$image" .
+    --build-arg "BUILD_ID=${build}" --build-arg "MODULES=$(build_modules)" "${labels[@]}" -t "$image" .
   say "Uploading ${image}"
   docker push "$image"
 }

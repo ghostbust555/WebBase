@@ -2,7 +2,9 @@
 
 Your site on Microsoft Azure, with HTTPS and an address included, from one
 script. **All you need is a browser**: Azure Cloud Shell has the tools, already
-signed in, and no Docker is needed (the image is built in Azure).
+signed in, and no Docker is needed: GitHub builds the image after each push
+and keeps it in its own registry (ghcr.io), and Azure runs it from there.
+Once connected, GitHub also deploys every push to `main` by itself.
 
 About 30 minutes, once. This page covers:
 
@@ -22,13 +24,13 @@ Per month, as published in October 2026 (check [the current list](https://azure.
 | **Database for PostgreSQL** | The data, if you pick it (`AZURE_DATABASE=postgres`) | **Free for the first 12 months** of a new Azure account: 750 hours of the smallest size (B1ms), 32 GB, 32 GB of backups. About $13/month after. Or bring a free [Neon](https://neon.tech) database: `AZURE_DATABASE_URL` |
 | **Blob Storage** | The CMS's pages, if you use them | **Free for the first 12 months**: 5 GB (locally redundant, hot), 20,000 reads and 10,000 writes a month. Cents a month after, at this size |
 | **Outbound traffic** | Pages sent to visitors | The first 100 GB a month is free |
-| **Container Registry** | The app's images | **Not on the free lists I could find**: the Basic tier is about $5/month. It's the one cost the free setup can't avoid. If your Azure free-services page lists it, you're ahead |
+| **The app's image** | What Azure runs | **Kept on GitHub, not Azure**: GitHub's container registry (ghcr.io), whose storage and downloads GitHub's billing docs list as currently free, private images included (they promise a month's notice before that changes). The workflow keeps only the newest 10 versions. Azure's own registry would be about $5/month: `AZURE_REGISTRY=acr` if you want it anyway |
 
-So the free setup costs about **$5/month**, the registry. The database is
-free for good, on Cosmos DB. (With Azure's PostgreSQL instead, it is $5 for
-the first year and about $18 after.) Everything else is free. Azure
-needs a card even for the free tier; a new account's trial credit is not
-charged unless you upgrade. **Set a budget alert** (below).
+So the free setup costs about **$0**: the database is free for good on
+Cosmos DB, and everything else is in the free amounts. (With Azure's
+PostgreSQL instead, it's free for the first year and about $13/month after.)
+Azure needs a card even for the free tier; a new account's trial credit is
+not charged unless you upgrade. **Set a budget alert** (below).
 
 The first visit after a quiet spell takes a few seconds: the app was asleep.
 
@@ -42,17 +44,42 @@ repository with this code in it (**Use this template**, or a copy you've pushed)
    warns you; it doesn't stop anything.
 2. **Open Cloud Shell**: <https://shell.azure.com> (choose *Bash*; it asks to
    create a small storage account the first time).
-3. **Get the code and run setup**:
+3. **Check GitHub has published the image**: your repository's **Actions**
+   tab shows *Tests*, then *Publish image*, after each push to `main` (about
+   5 minutes). Both green: the image is there. Never run? **Actions → Publish
+   image → Run workflow**.
+4. **Get the code and run setup**:
    ```bash
    git clone https://github.com/YOUR-NAME/YOUR-SITE.git
    cd YOUR-SITE
    ./scripts/cloud/azure.sh setup
    ```
-   A **private** repository? GitHub asks for a username and a password: the
-   password is a read-only token for this repository, [the token, step by step](CLOUD.md#a-private-repository-the-github-token).
-4. **Wait**: 10-20 minutes, most of it the database server. It prints your
+   A **private** repository needs **two GitHub tokens**, each able to do one
+   read-only thing. (One token can't do both: GitHub's image registry only
+   takes *classic* tokens, and a classic token that can read a private
+   repository can also write to every repository you have.)
+
+   **Token 1, for `git clone`** (a fine-grained token: reads this repository's
+   code, nothing else). [The token, step by step](CLOUD.md#a-private-repository-the-github-token); in short:
+   <https://github.com/settings/personal-access-tokens/new> → *Only select
+   repositories* → this one → *Repositories* permissions → **Contents:
+   Read-only** → *Generate token*. At `git clone`, the username is your GitHub
+   username and the password is this token.
+
+   **Token 2, for Azure to download the image** (a classic token: reads your
+   packages, nothing else). This link opens the form with only that box ticked:
+   <https://github.com/settings/tokens/new?scopes=read:packages&description=webbase-azure>.
+   Pick an expiration, press *Generate token*, and paste it when setup asks
+   for **Token**. Setup keeps it as the app's registry secret, so it isn't
+   asked for again; when it expires, make a new one and run
+   `GHCR_TOKEN=<new one> ./scripts/cloud/azure.sh setup`.
+5. **Wait**: 5-20 minutes, most of it the database. It prints your
    address, ending in `.azurecontainerapps.io`.
-5. **Check it**: open the address and **sign up straight away**: the first account is an author ([AUTHORS.md](AUTHORS.md#sign-up-right-after-you-deploy)). Try **Pages** → **New page**.
+6. **Check it**: open the address and **sign up straight away**: the first account is an author ([AUTHORS.md](AUTHORS.md#sign-up-right-after-you-deploy)). Try **Pages** → **New page**.
+7. **Deploy every push automatically**: `./scripts/cloud/azure.sh github`, then
+   add the four values it prints as repository variables
+   ([Releasing changes](#releasing-changes)). From then on a push to `main` is
+   all a release takes.
 
 What setup made, all in one *resource group* named `webbase-rg` (a folder
 holding everything, so removing it removes all of it):
@@ -60,7 +87,7 @@ holding everything, so removing it removes all of it):
 | Piece | How it's linked |
 |---|---|
 | The **app** (Container Apps) | Runs as its own *managed identity*, an account that exists only for this app |
-| The **registry** | That identity may pull images from it (the *AcrPull* role) and do nothing else with it. No registry password exists |
+| The **image** | On GitHub (ghcr.io). The app pulls it with your read-only packages token, kept as its registry secret. (`AZURE_REGISTRY=acr`: an Azure registry instead, which the app's identity may only pull from, with no password) |
 | The **database** | The app gets its connection string as a *secret*. Cosmos DB: an account whose key is in that secret. PostgreSQL: a server that accepts connections from Azure's own services, with the password, over TLS |
 | The **sign-in key** | Made once, kept as a secret of the app. Never printed, never in a file |
 | **Blob Storage** (only with the CMS) | That identity may *read* the one container (*Storage Blob Data Reader*), nothing more |
@@ -111,7 +138,7 @@ secret. Moving data between the two kinds is a one-off job
 | App size | 0.25 CPU, 0.5 GB | 0.5 CPU, 1 GB |
 | Copies | 0 to 2 (sleeps when idle) | 1 to 5 (always on, no cold starts) |
 | Database | Cosmos DB free account (or smallest PostgreSQL) | PostgreSQL General Purpose (2 vCores), 64 GB (or Cosmos DB serverless) |
-| Roughly | $5/month (see above) | $150-200/month |
+| Roughly | about $0 (see above) | $150-200/month |
 
 Choose before the first `setup`, by putting `AZURE_TIER=standard` in
 `cloud.env` (below) and running it. Switching later changes the app's size at
@@ -149,7 +176,8 @@ the compute bill grow without limit. Details and limits:
 
 | What | Where | Then |
 |---|---|---|
-| The site's name, Google sign-in's client id, the CMS | `cloud.env`, committed. Public settings only: the scripts refuse to run with a secret in it | Push, then `./scripts/cloud/azure.sh deploy` |
+| The site's name, Google sign-in's client id, the CMS | `cloud.env`, committed. Public settings only: the scripts refuse to run with a secret in it | Push. Once `github` is set up, that's all; otherwise wait for *Publish image*, then `git pull && ./scripts/cloud/azure.sh deploy` |
+| The token Azure pulls the image with (expired, or replaced) | Cloud Shell: `GHCR_TOKEN=... ./scripts/cloud/azure.sh setup` | Applies at once |
 | The database | Cloud Shell: `AZURE_DATABASE_URL='postgres://...' ./scripts/cloud/azure.sh setup` | Applies at once |
 | Region, resource group, tier | `AZURE_LOCATION`, `AZURE_RESOURCE_GROUP`, `AZURE_TIER` in `cloud.env`, before the first setup | |
 
@@ -159,33 +187,67 @@ your address among the client's allowed origins ([GOOGLE_SIGNIN.md](GOOGLE_SIGNI
 
 ## Releasing changes
 
-In Cloud Shell: `cd YOUR-SITE && git pull && ./scripts/cloud/azure.sh deploy`.
-It builds the new version in Azure, rolls it out, and checks `/api/health`.
+**Automatically, on every push (once):** in Cloud Shell,
 
-If Claude Code on the web is changing your code, it can't run this for you:
-the script needs your Azure login, and giving a coding assistant that is a
-bigger step than it looks. The split that works: Claude changes code and
-pushes (its tests run in GitHub), and you run `deploy` in Cloud Shell. (Only
-the [Google Cloud setup](GOOGLE_CLOUD.md) deploys by itself on every push.)
+```bash
+cd YOUR-SITE && git pull && ./scripts/cloud/azure.sh github
+```
+
+It makes a second identity, `<name>-deploy`, that trusts exactly one thing: a
+GitHub Actions run in your repository, on `main` (a *federated credential*:
+GitHub signs a token saying which repository and branch, and Azure checks it;
+no key or password exists). That identity may change the app and read the
+resource group: not the database, not the storage, nothing new. The script
+ends by printing four values: add each one under your repository's **Settings
+→ Secrets and variables → Actions → Variables** (variables, not secrets: none
+of them is secret).
+
+From then on, each push to `main` is tested, published, and rolled out by the
+*Publish image* workflow's *deploy* job, which checks `/api/health` too. The
+run's summary shows the address. Settings changed in `cloud.env` go out the
+same way.
+
+**By hand** (or before you've run `github`):
+
+1. Push to `main`. GitHub tests it, then builds and publishes the image
+   (**Actions** tab: *Tests*, then *Publish image*, about 5 minutes).
+2. In Cloud Shell: `cd YOUR-SITE && git pull && ./scripts/cloud/azure.sh deploy`.
+   It rolls out the image GitHub published for that commit, and checks
+   `/api/health`. If the image isn't there yet, it says so: wait for the
+   workflow and run it again.
+
+To go back to an earlier version: `git checkout <commit>` (or
+`AZURE_IMAGE_TAG=sha-<12 characters of it>`) and `deploy`. The newest 10
+versions are kept.
+
+With `github` done, Claude Code on the web (or anyone who can push to `main`)
+releases by pushing; nobody but GitHub's own run needs access to Azure.
+Without it, the split is: Claude changes code and pushes (its tests run in
+GitHub), and you run `deploy` in Cloud Shell.
 
 ## Removing it
 
 `./scripts/cloud/azure.sh destroy` deletes the resource group: the app, the
-registry, the storage and Azure's database **with all its data**. A Neon
-database you brought is left alone.
+storage and Azure's database **with all its data**. A Neon database you
+brought is left alone, and so are the images on GitHub (your profile →
+**Packages** to delete them).
 
 ## If something goes wrong
 
 | Symptom | Fix |
 |---|---|
 | `setup` says *AuthorizationFailed*, or can't assign a role | Your account needs the **Owner** role on the subscription (Portal → Subscriptions → Access control). A work account may forbid it: use a personal one |
-| *ACR Tasks* / the build fails with no Docker | Some subscriptions can't use Azure's builders. Run `deploy` on a computer with Docker, signed in with `az login` |
+| `setup` or `deploy` says it can't find the image | GitHub hasn't published that commit yet (Actions tab: wait for *Publish image*, or run it), Cloud Shell has commits GitHub doesn't (`git pull`), or the token is missing or expired (`GHCR_TOKEN=...` with setup) |
+| The app won't start: *unauthorized* pulling from ghcr.io | The packages token expired or was deleted: make a new one and run `GHCR_TOKEN=... ./scripts/cloud/azure.sh setup` |
+| The *deploy* job fails at *Azure login* with *AADSTS70021* / *No matching federated identity record* | The repository's name or branch doesn't match what `github` set up (it trusts `main` of the repository it was run from). Run `./scripts/cloud/azure.sh github` again from a clone of the right repository |
+| The *deploy* job is skipped | The four `AZURE_*` variables aren't set (Settings → Secrets and variables → Actions → **Variables**), or *Publish image* didn't succeed |
+| *ACR Tasks* / the build fails with no Docker | Only with `AZURE_REGISTRY=acr`: some subscriptions can't use Azure's builders. Run `deploy` on a computer with Docker, or use the default (GitHub builds it) |
 | `doesn't answer` after a deploy | `./scripts/cloud/azure.sh logs` shows the app's own error, often a wrong database string |
 | Cosmos DB says *high demand in ... region* (*ServiceUnavailable*) | Azure has no room for new Cosmos DB accounts in that region for now. Delete the half-made group (`az group delete -n <name>-rg --yes`), put another region in `.env.local` (`AZURE_LOCATION=centralus`, or `eastus2`, `eastus`) and run `setup` again |
 | The Container Apps environment ends *Failed*: *ManagedEnvironmentProvisioningError ... creation of the managed cluster failed, please retry later* | Azure couldn't build it in that region for now. Delete it and its log workspace (`az containerapp env delete -g <name>-rg -n <name>-env --yes`, then `az monitor log-analytics workspace delete -g <name>-rg -n workspace-... --yes --force`), put another region in `.env.local` (`AZURE_LOCATION=centralus`) and run `setup` again. The database can stay where it is |
 | *The subscription is not registered to use namespace* | Run `setup` again: it registers them, and the first time can be slow |
 | The site is slow on the first visit | It was idle and is starting: a few seconds, then normal. `AZURE_TIER=standard` keeps it awake |
-| Name already taken (registry, storage, database) | Names include a code from your subscription, so this means you already made one: run `setup` again, or remove the old resource group |
+| Name already taken (storage, database) | Names include a code from your subscription, so this means you already made one: run `setup` again, or remove the old resource group |
 
 More in [TROUBLESHOOTING.md](TROUBLESHOOTING.md). Your own domain: Portal →
 the Container App → *Custom domains* (a free certificate is included).

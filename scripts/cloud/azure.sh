@@ -5,20 +5,22 @@
 #
 #   ./scripts/cloud/azure.sh setup     create (or update) everything and deploy; safe to repeat.
 #                                      Run it again after changing a setting below.
-#   ./scripts/cloud/azure.sh deploy    build what's here and roll it out
+#   ./scripts/cloud/azure.sh deploy    roll out this commit (git pull first): the image GitHub
+#                                      published for it, or, with AZURE_REGISTRY=acr, built here
+#   ./scripts/cloud/azure.sh github    let GitHub Actions deploy each image it publishes (no keys involved)
 #   ./scripts/cloud/azure.sh url       the site's address
 #   ./scripts/cloud/azure.sh logs      the app's output, live
 #   ./scripts/cloud/azure.sh destroy   DELETE everything this created (and its data)
 #
 # Needs the Azure CLI, logged in (az login). Azure Cloud Shell
 # (https://shell.azure.com) has it, already logged in, plus git: nothing to
-# install. No Docker needed: without it, the image is built in Azure.
+# install. No Docker needed: GitHub builds the image (.github/workflows/publish-image.yml)
+# and keeps it in its own registry, ghcr.io, for free.
 #
 # Cost, set by AZURE_TIER:
 #   free      (default) scales to zero, the smallest size, inside Container Apps' free
 #             monthly grant, with the database on Cosmos DB's free tier, which never
-#             expires. The container registry has no free tier: Basic is about $5/month.
-#             Blob storage costs cents.
+#             expires, and the image on GitHub's registry: about $0. Blob storage costs cents.
 #   standard  always on (no cold starts), twice the size, up to 5 copies, and a General
 #             Purpose PostgreSQL database. Roughly $150-200/month.
 #
@@ -33,15 +35,22 @@
 #                         on Azure is free only for a new account's first 12 months.
 #   AZURE_DATABASE_URL    postgres://... to use your own PostgreSQL (e.g. a free Neon one)
 #                         instead of creating Azure's. Kept in the app's secrets.
-# The image is built with the database's module and the CMS storage's: nothing to add to the code.
+#   AZURE_REGISTRY        ghcr (default): run the image GitHub publishes, ghcr.io/<owner>/<name>.
+#                         acr: make an Azure Container Registry (about $5/month) and build here or in it.
+#   AZURE_IMAGE           the image, without a tag     default ghcr.io/<this clone's GitHub owner>/<name>
+#   AZURE_IMAGE_TAG       which one                    default sha-<this commit>
+#   GHCR_TOKEN            for a private repository's image: a GitHub token that may only read
+#                         packages. Asked for by setup when needed; kept as the app's registry secret.
+#   GHCR_USER             that token's GitHub user     default: the image's owner
+# The image has the database's module and the CMS storage's: nothing to add to the code.
 #   APP_NAME, GOOGLE_CLIENT_ID, CMS_ENABLED, CMS_SOURCE, CMS_AZURE_CONTAINER...   the app's own
 #                         settings. Keep them in cloud.env (committed): every deploy applies them.
 #                         CMS_SOURCE=azure makes a storage account and container for the pages.
 . "$(dirname "$0")/common.sh"
 
 case "${1:-}" in
-  setup|deploy|url|logs|destroy) ;;
-  *) sed -n '2,39p' "$0"; exit 1 ;;
+  setup|deploy|github|url|logs|destroy) ;;
+  *) sed -n '2,49p' "$0"; exit 1 ;;
 esac
 need_cli az "Install it (https://aka.ms/installazurecli), or run this in Azure Cloud Shell (https://shell.azure.com)."
 az account show >/dev/null 2>&1 || die "Not logged in to Azure. Run: az login"
@@ -67,6 +76,13 @@ DATABASE="$(setting AZURE_DATABASE "$DEFAULT_DATABASE")"
 case "$DATABASE" in postgres|cosmos) ;; *) die "AZURE_DATABASE is '${DATABASE}': use postgres or cosmos." ;; esac
 export DB_MODULE="$DATABASE"
 CMS_CONTAINER="$(setting CMS_AZURE_CONTAINER content)"
+
+# Where the image comes from: GitHub's registry (free), or Azure's own (about $5/month).
+REGISTRY_KIND="$(setting AZURE_REGISTRY ghcr)"
+case "$REGISTRY_KIND" in ghcr|acr) ;; *) die "AZURE_REGISTRY is '${REGISTRY_KIND}': use ghcr or acr." ;; esac
+GH_OWNER="$(git remote get-url origin 2>/dev/null | sed -nE 's#^(git@github\.com:|https://github\.com/)([^/]+)/.*#\2#p' | tr '[:upper:]' '[:lower:]')"
+GHCR_IMAGE="$(setting AZURE_IMAGE "${GH_OWNER:+ghcr.io/${GH_OWNER}/${SLUG}}")"
+GHCR_USER="$(setting GHCR_USER "$GH_OWNER")"
 
 if [ "$TIER" = free ]; then
   CPU=0.25 MEMORY=0.5Gi MIN=0 MAX=2
@@ -114,9 +130,72 @@ env_args() {
     # Free tier: the 1000 RU/s is shared by the three containers. Serverless has none to share.
     if [ "$TIER" = free ] && [ "$(setting AZURE_COSMOS_SERVERLESS)" != true ]; then ENV_ARGS+=("Cosmos__DatabaseThroughput=1000"); fi
   else
-    ENV_ARGS+=("DATABASE_URL=secretref:database-url")
+    # The image from GitHub has both database modules: say which one.
+    ENV_ARGS+=("Database__Provider=postgres" "DATABASE_URL=secretref:database-url")
   fi
 }
+
+# ---- The image from GitHub's registry (AZURE_REGISTRY=ghcr) --------------------------
+
+# The token the app pulls with, if setup stored one: the app's registry secret.
+ghcr_saved_token() {
+  local ref
+  ref="$(az containerapp registry list -g "$RG" -n "$APP" --query "[?server=='ghcr.io'].passwordSecretRef | [0]" -o tsv 2>/dev/null || true)"
+  [ -z "$ref" ] || secret_get "$ref"
+}
+
+# Is IMAGE published? Asks ghcr.io the way a container host does: anonymously,
+# or as GHCR_USER with the token when there is one (a private package).
+ghcr_published() {
+  local path="${IMAGE#ghcr.io/}" token
+  path="${path%:*}"
+  if [ -n "$GHCR_TOKEN" ]; then
+    token="$(curl -fsS -u "${GHCR_USER}:${GHCR_TOKEN}" "https://ghcr.io/token?scope=repository:${path}:pull" 2>/dev/null || true)"
+  else
+    token="$(curl -fsS "https://ghcr.io/token?scope=repository:${path}:pull" 2>/dev/null || true)"
+  fi
+  token="$(printf '%s' "$token" | sed -nE 's/.*"token":"([^"]+)".*/\1/p')"
+  [ -n "$token" ] || return 1
+  curl -fsS -o /dev/null -H "Authorization: Bearer ${token}" \
+    -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json" \
+    "https://ghcr.io/v2/${path}/manifests/${IMAGE##*:}" 2>/dev/null
+}
+
+# IMAGE for this commit, checked to exist. Setup may ask for a token (a private
+# repository's image can't be seen without one); deploy uses the one the app has.
+ghcr_image() {
+  [ -n "$GHCR_IMAGE" ] || die "Which image? This clone's origin isn't on GitHub: set AZURE_IMAGE=ghcr.io/OWNER/NAME."
+  BUILD="$(setting AZURE_IMAGE_TAG "sha-$(git rev-parse --short=12 HEAD)")"
+  IMAGE="${GHCR_IMAGE}:${BUILD}"
+  GHCR_TOKEN="$(setting GHCR_TOKEN)"
+  [ -n "$GHCR_TOKEN" ] || GHCR_TOKEN="$(ghcr_saved_token)"
+  say "Image ${IMAGE}, from GitHub's registry"
+  ghcr_published && return 0
+  if [ -z "$GHCR_TOKEN" ] && [ "$1" = setup ] && [ -t 0 ]; then
+    echo
+    bold "Azure needs a second GitHub token, to download the image (a private repository's images are private)."
+    echo "  Not the one you cloned with: a classic token whose only box is read:packages. This opens the form that way:"
+    echo "    https://github.com/settings/tokens/new?scopes=read:packages&description=${SLUG}-azure"
+    echo "  Pick an expiration, Generate token, paste it here. It's kept as the app's registry secret (docs/AZURE.md)."
+    read -r -s -p "  Token: " GHCR_TOKEN; echo
+    [ -z "$GHCR_TOKEN" ] || ! ghcr_published || return 0
+  fi
+  die "Can't find ${IMAGE}. Either GitHub hasn't published this commit yet (the repository's Actions tab:
+    Tests, then Publish image, about 5 minutes after a push; or Actions -> Publish image -> Run workflow),
+    this clone has commits GitHub hasn't seen (git pull, or push them), or the image is private and needs
+    GHCR_TOKEN (a GitHub token with read:packages) for ${GHCR_USER:-its owner}."
+}
+
+# How the app signs in to ghcr.io, for `containerapp create` (REGISTRY_ARGS) and for an
+# existing app (REGISTRY_SET, `containerapp registry set`). Nothing for a public image.
+ghcr_registry_args() {
+  REGISTRY_ARGS=(); REGISTRY_SET=()
+  [ -n "$GHCR_TOKEN" ] || return 0
+  REGISTRY_ARGS=(--registry-server ghcr.io --registry-username "$GHCR_USER" --registry-password "$GHCR_TOKEN")
+  REGISTRY_SET=(--server ghcr.io --username "$GHCR_USER" --password "$GHCR_TOKEN")
+}
+
+# ---- Or Azure's own registry (AZURE_REGISTRY=acr) -------------------------------------
 
 build_image() {
   BUILD="$(build_id)"
@@ -241,8 +320,10 @@ case "$1" in
   setup)
     say "Subscription: $(az account show --query name -o tsv). Tier: ${TIER}, region ${LOCATION}"
     say "Turning on the Azure services this needs (the first time takes a few minutes)"
-    for ns in Microsoft.App Microsoft.OperationalInsights Microsoft.ContainerRegistry Microsoft.DocumentDB \
-              Microsoft.DBforPostgreSQL Microsoft.ManagedIdentity Microsoft.Storage; do
+    namespaces=(Microsoft.App Microsoft.OperationalInsights Microsoft.DocumentDB Microsoft.DBforPostgreSQL
+                Microsoft.ManagedIdentity Microsoft.Storage)
+    [ "$REGISTRY_KIND" = acr ] && namespaces+=(Microsoft.ContainerRegistry)
+    for ns in "${namespaces[@]}"; do
       az provider register --namespace "$ns" --wait >/dev/null
     done
     az extension add --name containerapp --upgrade --only-show-errors >/dev/null
@@ -252,15 +333,26 @@ case "$1" in
     # resources go to AZURE_LOCATION. (Creating it again in another region would fail.)
     exists az group show -n "$RG" || az group create -n "$RG" -l "$LOCATION" -o none
 
-    say "The app's identity, and a container registry for its images"
+    say "The app's identity"
     exists az identity show -g "$RG" -n "$IDENTITY" || az identity create -g "$RG" -n "$IDENTITY" -l "$LOCATION" -o none
-    exists az acr show -g "$RG" -n "$REGISTRY" \
-      || az acr create -g "$RG" -n "$REGISTRY" --sku Basic --admin-enabled false -o none
-    # The app may pull images from this registry, and do nothing else with it.
-    retry az role assignment create --assignee-object-id "$(az identity show -g "$RG" -n "$IDENTITY" --query principalId -o tsv)" \
-      --assignee-principal-type ServicePrincipal --role AcrPull \
-      --scope "$(az acr show -g "$RG" -n "$REGISTRY" --query id -o tsv)" -o none \
-      || die "Couldn't let the app pull images. Your account needs the Owner role on the resource group."
+    if [ "$REGISTRY_KIND" = acr ]; then
+      say "A container registry for its images (about \$5/month)"
+      exists az acr show -g "$RG" -n "$REGISTRY" \
+        || az acr create -g "$RG" -n "$REGISTRY" --sku Basic --admin-enabled false -o none
+      # The app may pull images from this registry, and do nothing else with it.
+      retry az role assignment create --assignee-object-id "$(az identity show -g "$RG" -n "$IDENTITY" --query principalId -o tsv)" \
+        --assignee-principal-type ServicePrincipal --role AcrPull \
+        --scope "$(az acr show -g "$RG" -n "$REGISTRY" --query id -o tsv)" -o none \
+        || die "Couldn't let the app pull images. Your account needs the Owner role on the resource group."
+    else
+      # Checked before anything costs time: the image must be on GitHub already.
+      ghcr_image setup
+      ghcr_registry_args
+      if exists az acr show -g "$RG" -n "$REGISTRY"; then
+        warn "Registry ${REGISTRY} from an earlier setup isn't used any more, and costs about \$5/month."
+        warn "Once this works, delete it: az acr delete -g ${RG} -n ${REGISTRY} --yes"
+      fi
+    fi
 
     if [ "$DATABASE" = cosmos ]; then
       DB_URL="$(cosmos_connection)" || die "Couldn't create the Cosmos DB account: Azure's message is above."
@@ -272,8 +364,12 @@ case "$1" in
     setup_cms_storage
     cms_secrets_notice
 
-    build_image
+    [ "$REGISTRY_KIND" = acr ] && build_image
     ID_RESOURCE="$(az identity show -g "$RG" -n "$IDENTITY" --query id -o tsv)"
+    if [ "$REGISTRY_KIND" = acr ]; then
+      REGISTRY_ARGS=(--registry-server "${REGISTRY}.azurecr.io" --registry-identity "$ID_RESOURCE")
+      REGISTRY_SET=()   # an existing app already pulls from it with its identity
+    fi
     env_args
     exists az containerapp env show -g "$RG" -n "$APP_ENV" \
       || { say "Container Apps environment"; az containerapp env create -g "$RG" -n "$APP_ENV" -l "$LOCATION" --no-wait -o none; }
@@ -285,12 +381,15 @@ case "$1" in
     if exists az containerapp show -g "$RG" -n "$APP"; then
       say "Updating the app"
       az containerapp secret set -g "$RG" -n "$APP" --secrets "jwt-key=${JWT}" "database-url=${DB_URL}" -o none
+      if [ "${#REGISTRY_SET[@]}" -gt 0 ]; then
+        az containerapp registry set -g "$RG" -n "$APP" "${REGISTRY_SET[@]}" -o none
+      fi
       az containerapp update -g "$RG" -n "$APP" --image "$IMAGE" --replace-env-vars "${ENV_ARGS[@]}" \
         --min-replicas "$MIN" --max-replicas "$MAX" --cpu "$CPU" --memory "$MEMORY" -o none
     else
       say "Creating the app (${CPU} CPU, ${MEMORY}, ${MIN}-${MAX} copies)"
       az containerapp create -g "$RG" -n "$APP" --environment "$APP_ENV" --image "$IMAGE" \
-        --user-assigned "$ID_RESOURCE" --registry-server "${REGISTRY}.azurecr.io" --registry-identity "$ID_RESOURCE" \
+        --user-assigned "$ID_RESOURCE" "${REGISTRY_ARGS[@]+"${REGISTRY_ARGS[@]}"}" \
         --target-port 8080 --ingress external \
         --min-replicas "$MIN" --max-replicas "$MAX" --cpu "$CPU" --memory "$MEMORY" \
         --secrets "jwt-key=${JWT}" "database-url=${DB_URL}" --env-vars "${ENV_ARGS[@]}" --no-wait -o none
@@ -300,18 +399,72 @@ case "$1" in
     if [ "$TIER" = free ]; then
       echo "    Free tier: the app sleeps when idle, so the first visit after a quiet spell takes a few seconds."
       [ "$DATABASE" = cosmos ] && echo "    The database is on Cosmos DB's free tier: it never expires (one such account per subscription)."
-      echo "    Not free: the container registry (about \$5/month). Set a budget alert: https://portal.azure.com/#view/Microsoft_Azure_CostManagement/Menu/~/budgets"
+      [ "$REGISTRY_KIND" = acr ] && echo "    Not free: the container registry (about \$5/month)."
+      echo "    Set a budget alert anyway: https://portal.azure.com/#view/Microsoft_Azure_CostManagement/Menu/~/budgets"
     fi
-    echo "    Next time, just: ./scripts/cloud/azure.sh deploy"
+    if [ "$REGISTRY_KIND" = ghcr ]; then
+      echo "    Next time: push to main, wait for GitHub's Publish image (Actions tab), then here:"
+      echo "    git pull && ./scripts/cloud/azure.sh deploy"
+    else
+      echo "    Next time, just: ./scripts/cloud/azure.sh deploy"
+    fi
     ;;
 
   deploy)
     exists az containerapp show -g "$RG" -n "$APP" || die "No app yet. Run ./scripts/cloud/azure.sh setup first."
-    build_image
+    if [ "$REGISTRY_KIND" = acr ]; then build_image; else ghcr_image deploy; fi
     env_args
     say "Rolling out ${BUILD}"
     az containerapp update -g "$RG" -n "$APP" --image "$IMAGE" --replace-env-vars "${ENV_ARGS[@]}" -o none
     check_health
+    ;;
+
+  github)
+    # GitHub Actions deploys each image it publishes (.github/workflows/publish-image.yml,
+    # job "deploy"). No key or password: GitHub proves "a run in this repository, on main"
+    # with a token it signs, and this identity trusts exactly that (a federated credential).
+    [ "$REGISTRY_KIND" = ghcr ] || die "Deploying from GitHub needs the image on GitHub's registry: AZURE_REGISTRY=ghcr."
+    origin="$(git remote get-url origin 2>/dev/null || true)"
+    GITHUB_REPO="$(setting GITHUB_REPO "$(echo "$origin" | sed -E 's#^(git@github\.com:|https://github\.com/)##; s#\.git$##')")"
+    [[ "$GITHUB_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] \
+      || die "Which GitHub repository? Run with GITHUB_REPO=owner/name ./scripts/cloud/azure.sh github"
+    exists az containerapp show -g "$RG" -n "$APP" || die "No app yet. Run ./scripts/cloud/azure.sh setup first."
+    DEPLOYER="${SLUG}-deploy"
+    say "An identity for GitHub Actions in ${GITHUB_REPO} to deploy with (${DEPLOYER})"
+    exists az identity show -g "$RG" -n "$DEPLOYER" || az identity create -g "$RG" -n "$DEPLOYER" -l "$LOCATION" -o none
+    subject="repo:${GITHUB_REPO}:ref:refs/heads/main"
+    current="$(az identity federated-credential show -g "$RG" --identity-name "$DEPLOYER" -n github-main --query subject -o tsv 2>/dev/null || true)"
+    if [ "$current" != "$subject" ]; then
+      [ -z "$current" ] || az identity federated-credential delete -g "$RG" --identity-name "$DEPLOYER" -n github-main --yes -o none
+      az identity federated-credential create -g "$RG" --identity-name "$DEPLOYER" -n github-main \
+        --issuer https://token.actions.githubusercontent.com --subject "$subject" --audiences api://AzureADTokenExchange -o none
+    fi
+    # Change the app (a new image, its settings) and read the rest of the group (the app's
+    # identity, for its settings). Not: the database, the storage, or making anything new.
+    principal="$(az identity show -g "$RG" -n "$DEPLOYER" --query principalId -o tsv)"
+    retry az role assignment create --assignee-object-id "$principal" --assignee-principal-type ServicePrincipal \
+      --role Contributor --scope "$(az containerapp show -g "$RG" -n "$APP" --query id -o tsv)" -o none \
+      || die "Couldn't let the deployer change the app. Your account needs the Owner role on the resource group."
+    retry az role assignment create --assignee-object-id "$principal" --assignee-principal-type ServicePrincipal \
+      --role Reader --scope "$(az group show -n "$RG" --query id -o tsv)" -o none \
+      || die "Couldn't let the deployer read the resource group. Your account needs the Owner role on it."
+
+    VARS=(AZURE_CLIENT_ID="$(az identity show -g "$RG" -n "$DEPLOYER" --query clientId -o tsv)"
+      AZURE_TENANT_ID="$(az account show --query tenantId -o tsv)"
+      AZURE_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+      AZURE_RESOURCE_GROUP="$RG")
+    if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+      for v in "${VARS[@]}"; do gh variable set "${v%%=*}" --body "${v#*=}" -R "$GITHUB_REPO" >/dev/null; done
+      ok "Done, and the repository's variables are set. From the next push to main, GitHub deploys by itself."
+    else
+      ok "Done on Azure's side. One step left, on GitHub:"
+      echo "    https://github.com/${GITHUB_REPO}/settings/variables/actions -> New repository variable, four times."
+      echo "    (Variables, not secrets: none of these is secret; GitHub's signed token is what proves it's you.)"
+      echo
+      for v in "${VARS[@]}"; do printf '      %-24s %s\n' "${v%%=*}" "${v#*=}"; done
+      echo
+      echo "    Then each push to main is tested, published, and deployed. Or now: Actions -> Publish image -> Run workflow."
+    fi
     ;;
 
   url) app_url ;;

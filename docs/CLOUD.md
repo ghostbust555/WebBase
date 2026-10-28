@@ -18,15 +18,15 @@ Render or Railway (both click-through, with a database included) or a VPS
 (about $5/month, plus a managed database once the data matters) are simple too.
 Pick Azure or AWS when you already use one of them, need its other
 services, or expect to need to scale. Their scripts do the setup in one
-command too, with a free setup (Azure: about $5/month, mostly the image
-registry; AWS: about nothing, with a free Neon database) and a standard one
+command too, with a free setup (Azure: about nothing, with the image on
+GitHub's registry; AWS: about nothing, with a free Neon database) and a standard one
 that's always on. Each platform has more parts to understand and its own
 billing to watch.
 
 | | Free setup | Standard setup | Files for the CMS |
 |---|---|---|---|
 | **Google Cloud** | Cloud Run + Firestore (or a free Neon PostgreSQL): **$0** | Cloud Run always on + Cloud SQL: ~$35-45/month | Cloud Storage (`gcs`) |
-| **Azure** | Container Apps + Cosmos DB (free forever; or PostgreSQL, free 12 months): ~**$5/month** | always on + General Purpose database: ~$150-200/month | Blob Storage (`azure`) |
+| **Azure** | Container Apps + Cosmos DB (free forever; or PostgreSQL, free 12 months), image on GitHub's registry: **~$0** | always on + General Purpose database: ~$150-200/month | Blob Storage (`azure`) |
 | **AWS** | Lambda + free Neon database: **~$0** | ECS Express Mode + RDS: ~$40-70/month | S3 (`s3`) |
 
 Choose with `GCP_TIER`, `AZURE_TIER` or `AWS_TIER` (`free` by default,
@@ -196,8 +196,8 @@ included. **Azure Database for PostgreSQL** (Flexible Server) holds the data.
 
 **The full guide is [AZURE.md](AZURE.md)**: what's free (Container Apps'
 monthly grant, the database for a new account's first year or Cosmos DB's
-free tier for good; the image
-registry is about $5/month), Azure Cloud Shell so nothing is installed, and
+free tier for good; the image on
+GitHub's registry, built by GitHub after each push, and deployed by it once connected), Azure Cloud Shell so nothing is installed, and
 Blob Storage for the CMS. In short:
 
 ```bash

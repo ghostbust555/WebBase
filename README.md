@@ -65,7 +65,7 @@ Never used a terminal, or don't have Docker yet? Start with
 7. **[Deploying on your own computer](docs/DEPLOYING.md)** - production, releases, rollback, backups.
 8. **[Your own domain with Cloudflare Tunnel](docs/CLOUDFLARE_TUNNEL.md)** - public, with no router changes.
 9. **[Google Cloud Run, for free](docs/GOOGLE_CLOUD.md)** - deployed from GitHub on every push; set up from a browser.
-10. **[Azure Container Apps](docs/AZURE.md)** - about $5/month, or always-on; set up from Cloud Shell.
+10. **[Azure Container Apps](docs/AZURE.md)** - about $0, or always-on; set up from Cloud Shell, deployed by GitHub on every push.
 11. **[Amazon Web Services](docs/AWS.md)** - free on Lambda, or always-on with RDS; set up from CloudShell.
 12. **[Deploying to a cloud](docs/CLOUD.md)** - the three above compared, plus Fly.io, Render, Railway, a VPS.
 13. **[Google sign-in](docs/GOOGLE_SIGNIN.md)** - optional.

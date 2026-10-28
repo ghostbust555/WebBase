@@ -79,11 +79,24 @@ traps.
 - Cloud images are built with `--build-arg MODULES=...` (`build_modules` in common.sh: the
   chosen database + `CMS_SOURCE`'s storage), which makes `module.sh set` run in ops/Dockerfile:
   a module is a setting, not a code change. Postgres is a module like the others; Azure free
-  defaults to Cosmos (`AZURE_DATABASE`); Google Cloud free defaults to Firestore for a new site
+  defaults to Cosmos (`AZURE_DATABASE`, region `westus2`); Google Cloud free defaults to Firestore for a new site
   (`GCP_DATABASE`; `pick_database` in gcp.sh: a site with a Postgres secret stays on Postgres, and
   `deploy` reads `Database__Provider` from the live service, never switching). Firestore needs no
   secret: Cloud Run's service account gets `roles/datastore.user`. Firestore uniqueness is a
   transaction over `keys` documents (hash ids); per-user data lives in `users/{id}/<collection>`.
+- Azure's image comes from GitHub by default (`AZURE_REGISTRY=ghcr`): `.github/workflows/publish-image.yml`
+  runs after Tests pass on main, builds with `DB_MODULE="postgres cosmos"` (one image, either database;
+  `Database__Provider` picks, so azure.sh sets it for postgres too) and pushes
+  `ghcr.io/<owner>/webbase:sha-<12-char commit>` and `:latest` via `push-image.sh`, keeping 10 versions.
+  `azure.sh setup|deploy` never builds: it checks that `sha-<HEAD>` exists on ghcr.io (`ghcr_published`,
+  anonymous or with `GHCR_TOKEN`) and points the app at it. A private package needs `GHCR_TOKEN` (classic,
+  read:packages), asked once by setup and stored as the app's registry secret (`ghcr_saved_token` reads it
+  back). `AZURE_REGISTRY=acr` keeps the Azure Container Registry path (~$5/month).
+  `azure.sh github` makes a `<slug>-deploy` user-assigned identity with a federated credential for
+  `repo:<owner>/<repo>:ref:refs/heads/main` (Contributor on the app, Reader on the group) and prints
+  the four `AZURE_*` repository variables; publish-image.yml's `deploy` job (only when
+  `vars.AZURE_CLIENT_ID` is set) logs in with azure/login (OIDC) and runs `azure.sh deploy`.
+  Long Azure creates use `--no-wait` + `wait_provisioned` (Cloud Shell's az can lose track of them).
 - Cloud: `scripts/cloud/{gcp,azure,aws}.sh` each take `*_TIER=free|standard` (free stays
   inside the free tier; AWS free = Lambda via `ops/Dockerfile.lambda` + a Neon database).
   They keep secrets in the cloud itself (Secret Manager, Container App secrets,
@@ -110,7 +123,7 @@ Docker is preferred, but not required: with no daemon, `./setupenvironment.sh --
 | End-to-end check of a running stack | `./scripts/smoke.sh [base-url]` |
 | Release prod locally / undo | `./deploy.sh` / `./deploy.sh rollback` |
 | Public via Cloudflare | `./tunnel.sh on` |
-| Cloud | `scripts/cloud/{azure,aws,gcp}.sh setup|deploy|url|logs|destroy` (docs/AZURE.md, AWS.md, GOOGLE_CLOUD.md); `gcp.sh github` connects Actions; generic `push-image.sh` |
+| Cloud | `scripts/cloud/{azure,aws,gcp}.sh setup|deploy|url|logs|destroy` (docs/AZURE.md, AWS.md, GOOGLE_CLOUD.md); `gcp.sh github` and `azure.sh github` connect Actions; generic `push-image.sh` |
 | Shell scripts lint | `docker run --rm -v "$PWD:/m" -w /m koalaman/shellcheck:v0.10.0 -x -S warning *.sh scripts/*.sh scripts/cloud/*.sh` |
 
 ## Rules

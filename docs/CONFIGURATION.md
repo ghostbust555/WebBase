@@ -42,6 +42,8 @@ explained.
 | `PROD_PORT` | prod | Production's port on this computer, default 8080 |
 | `AZURE_DATABASE` | cloud scripts | `cosmos` (the Azure free setup's default; its free tier never expires) or `postgres` ([AZURE.md](AZURE.md#the-database-cosmos-db-or-postgresql)) |
 | `BUILD_MODULES` | cloud scripts | Override the modules the image is built with, e.g. `cosmos azure` ([MODULES.md](MODULES.md)). Normally chosen from the database and `CMS_SOURCE` |
+| `AZURE_REGISTRY` | cloud scripts | `ghcr` (default: run the image GitHub publishes after each push, free) or `acr` (an Azure Container Registry, about $5/month) ([AZURE.md](AZURE.md)) |
+| `GHCR_TOKEN` | cloud scripts (a secret: never in `cloud.env`) | A GitHub token with only `read:packages`, for Azure to pull a private repository's image. `azure.sh setup` asks for it once and keeps it as the app's registry secret |
 | `GCP_DATABASE` | cloud scripts | `firestore` (the Google Cloud free setup's default for a new site: free, no password) or `postgres` (a site set up with it stays on it) ([GOOGLE_CLOUD.md](GOOGLE_CLOUD.md#postgresql-instead-of-firestore)) |
 | `GCP_TIER`, `AZURE_TIER`, `AWS_TIER` | cloud scripts | `free` (default) or `standard` (always on, bigger, costs money): [GOOGLE_CLOUD.md](GOOGLE_CLOUD.md), [AZURE.md](AZURE.md), [AWS.md](AWS.md) |
 | `GCP_*`, `AZURE_*`, `AWS_*` | cloud scripts | Region, project, your own database (`*_DATABASE_URL`), and so on: the top of each script in `scripts/cloud/` lists them. They can go in `cloud.env` too, except the database address, which is a secret |
