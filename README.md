@@ -112,7 +112,7 @@ compose.dev.yaml     what ./dev.sh runs
 compose.prod.yaml    what ./deploy.sh and ./tunnel.sh run (+ compose.prod-db.yaml: its database container)
 .env.example         every setting, explained; ./setup.sh copies it to .env.local
 cloud.env            public settings for cloud deploys (committed; no secrets)
-.github/workflows/   tests on every push; the Google Cloud deploy once it's set up
+.github/workflows/   the tests, when you start them; the image and the cloud deploys on every push to main
 setup.sh dev.sh deploy.sh tunnel.sh   the four commands you'll use most
 CLAUDE.md            instructions for AI coding assistants working in this repository
 ```

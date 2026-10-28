@@ -1,12 +1,12 @@
-# Every check (./scripts/test.sh) on every push and pull request: the C# tests
-# of the app and every module, the generated types, the website's build.
-# Handy when you work without Docker, e.g. from Claude Code on the web: push
-# a branch and read the result here (or `gh run watch`).
+# Every check (./scripts/test.sh): the C# tests of the app and every module,
+# the generated types, the website's build. Only when asked: pushing doesn't
+# run it, so a push to main goes straight to the image and the deploy.
+#   Actions -> Tests -> Run workflow (pick the branch), or
+#   gh workflow run Tests --ref <branch>   (then: gh run watch)
+# Handy when you work without Docker, e.g. from Claude Code on the web.
 name: Tests
 
 on:
-  push:
-  pull_request:
   workflow_dispatch:
 
 permissions:

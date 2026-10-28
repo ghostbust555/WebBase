@@ -1,8 +1,8 @@
 # Google Cloud Run, for free
 
 Your site on Google's servers, with HTTPS and an address included, at no
-cost for a small site. Every push to `main` is tested and, if the tests
-pass, deployed. **All you need is a browser**: nothing to install, no Docker,
+cost for a small site. Every push to `main` is deployed (the tests run when
+you ask for them: **Actions → Tests → Run workflow**). **All you need is a browser**: nothing to install, no Docker,
 no computer set up for development. It works the same whether you change
 the code yourself or have Claude Code on the web do it
 ([below](#working-from-claude-code-on-the-web)).
@@ -111,9 +111,9 @@ It ends by printing four values, and a link to your repository's
 **repository variable** (they're not secret): `GCP_PROJECT`, `GCP_REGION`,
 `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_SERVICE_ACCOUNT`.
 
-From now on, each push to `main` runs the **Tests** workflow, then **Deploy
-to Google Cloud**, which builds the new version, rolls it out, and checks
-`/api/health`. To deploy without a push: your repository's **Actions** tab →
+From now on, each push to `main` runs **Deploy to Google Cloud**, which
+builds the new version, rolls it out, and checks `/api/health`. The tests
+don't run first: run them when you want, **Actions → Tests → Run workflow**. To deploy without a push: your repository's **Actions** tab →
 *Deploy to Google Cloud* → **Run workflow**.
 
 ### 5. Check it
@@ -128,8 +128,8 @@ web, without a development computer:
 
 | You ask | What happens |
 |---|---|
-| "Add a page that...", "fix..." | Claude changes the code, and pushes a branch. The **Tests** workflow runs on it; Claude can read the result, with `gh` or the GitHub tools. That's how it checks its work when its environment can't run Docker |
-| "Merge it" / "push to main" | Tested again, then deployed. Claude can follow the deploy in the Actions tab the same way |
+| "Add a page that...", "fix..." | Claude changes the code, and pushes a branch. Asked to test it, it starts the **Tests** workflow on that branch (`gh workflow run Tests --ref <branch>`); Claude can read the result, with `gh` or the GitHub tools. That's how it checks its work when its environment can't run Docker |
+| "Merge it" / "push to main" | Deployed (tested first only if you ask). Claude can follow the deploy in the Actions tab the same way |
 | "Change the site's name", "turn on the CMS" | A change to `cloud.env` ([below](#changing-settings)); the next deploy applies it |
 | "Is the site up?" | Claude asks `/api/health`, if its environment's network policy lets it reach your `run.app` address (see [Claude Code on the web](https://code.claude.com/docs/en/claude-code-on-the-web) for network settings) |
 
@@ -210,7 +210,7 @@ nothing is left, delete the whole project:
 |---|---|
 | `setup` stops at "allow unauthenticated" or "allUsers" | Your Google account belongs to an organization whose policy forbids public services. Use a project outside it, or ask its admin |
 | The deploy workflow says *Permission denied* or *Unable to acquire impersonated credentials* | The repository's name or variables don't match. Run `./scripts/cloud/gcp.sh github` again and compare the four values |
-| The deploy never starts | The Tests workflow must pass on `main` first, and the four variables must be set. Actions → *Deploy to Google Cloud* shows whether it was skipped |
+| The deploy never starts | It runs on pushes to `main`, and only once the four variables are set. Actions → *Deploy to Google Cloud* shows whether it was skipped |
 | "doesn't answer" after a deploy | `./scripts/cloud/gcp.sh logs` shows the app's own error. With PostgreSQL, often a database string that's wrong or has pooling on |
 | `setup` says the Firestore database is in Datastore mode | That project's Firestore was made for something else and can't change mode. Use a new project, or `GCP_DATABASE=postgres` |
 | *PERMISSION_DENIED* from Firestore in the logs | The app's account lost `roles/datastore.user`: run `setup` again |

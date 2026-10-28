@@ -45,8 +45,8 @@ repository with this code in it (**Use this template**, or a copy you've pushed)
 2. **Open Cloud Shell**: <https://shell.azure.com> (choose *Bash*; it asks to
    create a small storage account the first time).
 3. **Check GitHub has published the image**: your repository's **Actions**
-   tab shows *Tests*, then *Publish image*, after each push to `main` (about
-   5 minutes). Both green: the image is there. Never run? **Actions → Publish
+   tab shows *Publish image* after each push to `main` (about 5 minutes).
+   Green: the image is there. Never run? **Actions → Publish
    image → Run workflow**.
 4. **Get the code and run setup**:
    ```bash
@@ -187,6 +187,11 @@ your address among the client's allowed origins ([GOOGLE_SIGNIN.md](GOOGLE_SIGNI
 
 ## Releasing changes
 
+The tests don't run on a push: start them when you want them, **Actions →
+Tests → Run workflow** (any branch). A push to `main` goes straight to the
+image, which still type-checks and builds the website, so a broken page
+stops there.
+
 **Automatically, on every push (once):** in Cloud Shell,
 
 ```bash
@@ -202,15 +207,15 @@ ends by printing four values: add each one under your repository's **Settings
 → Secrets and variables → Actions → Variables** (variables, not secrets: none
 of them is secret).
 
-From then on, each push to `main` is tested, published, and rolled out by the
+From then on, each push to `main` is published and rolled out by the
 *Publish image* workflow's *deploy* job, which checks `/api/health` too. The
 run's summary shows the address. Settings changed in `cloud.env` go out the
 same way.
 
 **By hand** (or before you've run `github`):
 
-1. Push to `main`. GitHub tests it, then builds and publishes the image
-   (**Actions** tab: *Tests*, then *Publish image*, about 5 minutes).
+1. Push to `main`. GitHub builds and publishes the image (**Actions** tab:
+   *Publish image*, about 5 minutes).
 2. In Cloud Shell: `cd YOUR-SITE && git pull && ./scripts/cloud/azure.sh deploy`.
    It rolls out the image GitHub published for that commit, and checks
    `/api/health`. If the image isn't there yet, it says so: wait for the

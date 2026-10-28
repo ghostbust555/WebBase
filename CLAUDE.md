@@ -85,7 +85,7 @@ traps.
   secret: Cloud Run's service account gets `roles/datastore.user`. Firestore uniqueness is a
   transaction over `keys` documents (hash ids); per-user data lives in `users/{id}/<collection>`.
 - Azure's image comes from GitHub by default (`AZURE_REGISTRY=ghcr`): `.github/workflows/publish-image.yml`
-  runs after Tests pass on main, builds with `DB_MODULE="postgres cosmos"` (one image, either database;
+  runs on every push to main (not after Tests), builds with `DB_MODULE="postgres cosmos"` (one image, either database;
   `Database__Provider` picks, so azure.sh sets it for postgres too) and pushes
   `ghcr.io/<owner>/webbase:sha-<12-char commit>` and `:latest` via `push-image.sh`, keeping 10 versions.
   `azure.sh setup|deploy` never builds: it checks that `sha-<HEAD>` exists on ghcr.io (`ghcr_published`,
@@ -103,8 +103,9 @@ traps.
   Parameter Store), not in `.env.local`, so they run from Cloud Shell. Scripts read settings from the environment, then
   `.env.local`, then the committed `cloud.env` (public settings only;
   `check_cloud_env` in `common.sh` refuses secret-looking keys).
-  `.github/workflows/tests.yml` runs `test.sh` on every push;
-  `deploy-google-cloud.yml` runs after Tests succeed on `main`, only once the
+  `.github/workflows/tests.yml` runs `test.sh` **only when started** (workflow_dispatch: Actions →
+  Tests, or `gh workflow run Tests --ref <branch>`), never on push: the user asks for tests;
+  `deploy-google-cloud.yml` runs on every push to `main`, only once the
   `GCP_*` repository variables exist, authenticating with Workload Identity
   Federation (no keys) and calling `gcp.sh deploy`. docs/GOOGLE_CLOUD.md.
 

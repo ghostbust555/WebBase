@@ -133,8 +133,9 @@ host's `dotnet` and the database in `.env.host`).
 - The **PostgreSQL module tests run** when `TEST_POSTGRES` is set (`.env.host` sets it).
   Without it they show as skipped.
 - The **S3, Azure Blob and Google Cloud Storage module tests are skipped**: their stand-ins
-  (S3Mock, Azurite, fake-gcs-server) are Docker containers. They run on every push in GitHub
-  ([the workflow](../.github/workflows/tests.yml)).
+  (S3Mock, Azurite, fake-gcs-server) are Docker containers. They run in GitHub when you start
+  the Tests workflow (**Actions → Tests → Run workflow**, or `gh workflow run Tests --ref <branch>`;
+  [the workflow](../.github/workflows/tests.yml)).
 - Cosmos DB's tests need its emulator in either mode ([its README](../modules/WebBase.Database.CosmosDB/README.md)).
   So do Firestore's (`TEST_FIRESTORE`); its emulator is a Java program that runs without Docker
   ([its README](../modules/WebBase.Database.Firestore/README.md)).

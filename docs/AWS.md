@@ -136,7 +136,7 @@ It builds the new version, rolls it out, and checks `/api/health`.
 If Claude Code on the web is changing your code, it can't run this for you:
 the script needs your AWS login, and giving a coding assistant that is a
 bigger step than it looks. The split that works: Claude changes code and
-pushes (its tests run in GitHub), and you run `deploy` in CloudShell. (The
+pushes (and runs the tests in GitHub when asked: **Actions → Tests**), and you run `deploy` in CloudShell. (The
 [Google Cloud](GOOGLE_CLOUD.md) and [Azure](AZURE.md#releasing-changes) setups
 can deploy by themselves on every push.)
 

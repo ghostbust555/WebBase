@@ -493,7 +493,7 @@ case "$1" in
       echo
       for v in "${VARS[@]}"; do printf '      %-24s %s\n' "${v%%=*}" "${v#*=}"; done
       echo
-      echo "    Then each push to main is tested, published, and deployed. Or now: Actions -> Publish image -> Run workflow."
+      echo "    Then each push to main is published and deployed. Or now: Actions -> Publish image -> Run workflow."
     fi
     ;;
 

@@ -1,4 +1,4 @@
-# Build the production image after the tests pass on main, and store it in
+# Build the production image on every push to main, and store it in
 # GitHub's own container registry (ghcr.io, free), tagged with the commit:
 #   ghcr.io/<owner>/webbase:sha-<12 characters of the commit>, and :latest
 # ./scripts/cloud/azure.sh runs it from there (docs/AZURE.md), and any host
@@ -15,10 +15,10 @@
 # repository and branch this run belongs to, and Azure lets exactly that deploy.
 name: Publish image
 
+# The tests don't run first: they run only when asked (tests.yml). The image
+# build still type-checks and builds the website, so a broken client stops here.
 on:
-  workflow_run:
-    workflows: [Tests]
-    types: [completed]
+  push:
     branches: [main]
   # Actions -> Publish image -> Run workflow: publish main now.
   workflow_dispatch:
@@ -33,16 +33,12 @@ concurrency:
 
 jobs:
   publish:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
-          # The commit the tests passed on, not whatever main is by now.
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.sha }}
       - name: Log in to ghcr.io
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: Build and push
@@ -72,7 +68,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.sha }}  # the commit publish built, not whatever main is by now
       # Not a secret: which repository and branch this run is, as Azure will see it.
       # azure.sh github must trust exactly this; the summary says how if it doesn't.
       - name: Show the identity this run presents to Azure
